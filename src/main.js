@@ -1,5 +1,6 @@
 import commander from 'commander';
 import path from 'path';
+import marky from 'marky';
 
 import pkg from '../package.json';
 import { getProjectFiles, getTranslationFiles, parseFile, parseTranslation } from './files';
@@ -39,26 +40,40 @@ program
   });
 
 function parseProjectFiles(projectFiles) {
-  console.log('Starting to parse project files...');
+  console.log('\nStarting to parse project files...');
+
+  marky.mark('parse-project-files');
   projectFiles.forEach(name => {
     const foundStrings = parseFile(name);
     // console.log(`Parsed '${name}' for ${foundStrings.length} keys.`);
     foundStrings.forEach(str => mapAddString(inputFilesMap, str));
   });
-  console.log('Finished parsing project files.');
-  console.log(`Total keys used: ${inputFilesMap.size}`)
+  const entry = marky.stop('parse-project-files');
+
+  console.log(`Finished parsing project files in ${entry.duration.toFixed(3)}ms.`);
+  console.log(`Total unique translation keys used in project files: ${inputFilesMap.size}`);
+
+  let totalTranslationsUsed = 0;
+  for (const entry of inputFilesMap.entries()) {
+    totalTranslationsUsed += entry[1];
+  }
+  console.log(`Total translations used in project files: ${totalTranslationsUsed}`);
+
 }
 
 function parseTranslationFiles(projectFiles) {
   console.log('Starting to parse translation files...');
+  marky.mark('parse-translation-files');
   projectFiles.forEach(name => {
     const foundTranslations = parseTranslation(name);
     console.log(`Parsed '${name}' for ${Object.keys(foundTranslations).length} translation strings.`);
-    
+
     const keys = Object.keys(foundTranslations);
     keys.forEach(key => mapAddString(translationsMap, key));
   });
-  console.log('Finished parsing translation files.');
+  const entry = marky.stop('parse-translation-files');
+
+  console.log(`Finished parsing translation files in ${entry.duration.toFixed(3)}ms.`);
 }
 
 program
