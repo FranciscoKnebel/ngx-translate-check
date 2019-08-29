@@ -2,7 +2,8 @@ import commander from 'commander';
 import path from 'path';
 
 import pkg from '../package.json';
-import { getProjectFiles, getTranslationFiles } from './files';
+import { getProjectFiles, getTranslationFiles, parseFile, parseTranslation } from './files';
+import { inputFilesMap, translationsMap, mapAddString } from './dictionary';
 
 const program = new commander.Command();
 
@@ -28,9 +29,37 @@ program
     ];
 
     Promise.all(filePromises).then(([projectFiles, translationFiles]) => {
-      // console.log({ projectFiles, translationFiles });
+      console.log(`Total project files: ${projectFiles.length}`);
+      console.log(`Total translation files: ${translationFiles.length}`);
+
+      parseProjectFiles(projectFiles);
+      console.log('');
+      parseTranslationFiles(translationFiles);
     })
   });
+
+function parseProjectFiles(projectFiles) {
+  console.log('Starting to parse project files...');
+  projectFiles.forEach(name => {
+    const foundStrings = parseFile(name);
+    // console.log(`Parsed '${name}' for ${foundStrings.length} keys.`);
+    foundStrings.forEach(str => mapAddString(inputFilesMap, str));
+  });
+  console.log('Finished parsing project files.');
+  console.log(`Total keys used: ${inputFilesMap.size}`)
+}
+
+function parseTranslationFiles(projectFiles) {
+  console.log('Starting to parse translation files...');
+  projectFiles.forEach(name => {
+    const foundTranslations = parseTranslation(name);
+    console.log(`Parsed '${name}' for ${Object.keys(foundTranslations).length} translation strings.`);
+    
+    const keys = Object.keys(foundTranslations);
+    keys.forEach(key => mapAddString(translationsMap, key));
+  });
+  console.log('Finished parsing translation files.');
+}
 
 program
   .parse(process.argv);
