@@ -1,0 +1,35 @@
+{
+  "name": "ng-translate-check",
+  "version": "0.0.1",
+  "description": "CLI to test an Angular project using ng-translate to find missing and unused i18n strings.",
+  "main": "dist/cli.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "rollup -c"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FranciscoKnebel/ng-translate-check.git"
+  },
+  "keywords": [
+    "angular",
+    "ng-translate",
+    "i18n"
+  ],
+  "author": "Francisco Knebel <franciscopaivaknebel@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/FranciscoKnebel/ng-translate-check/issues"
+  },
+  "homepage": "https://github.com/FranciscoKnebel/ng-translate-check#readme",
+  "type": "module",
+  "dependencies": {
+    "commander": "^3.0.0",
+    "fast-glob": "^3.0.4",
+    "glob": "^7.1.4"
+  },
+  "devDependencies": {
+    "rollup": "^1.20.3",
+    "rollup-plugin-json": "^4.0.0"
+  }
+}
