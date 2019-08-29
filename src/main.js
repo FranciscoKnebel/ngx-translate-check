@@ -4,7 +4,7 @@ import marky from 'marky';
 
 import pkg from '../package.json';
 import { getProjectFiles, getTranslationFiles, parseFile, parseTranslation } from './files';
-import { inputFilesMap, translationsMap, mapAddString } from './dictionary';
+import { inputFilesMap, translationsMap, mapAddString, mapAddTranslationString } from './dictionary';
 
 const program = new commander.Command();
 
@@ -58,18 +58,17 @@ function parseProjectFiles(projectFiles) {
     totalTranslationsUsed += entry[1];
   }
   console.log(`Total translations used in project files: ${totalTranslationsUsed}`);
-
 }
 
-function parseTranslationFiles(projectFiles) {
+function parseTranslationFiles(translationFiles) {
   console.log('Starting to parse translation files...');
   marky.mark('parse-translation-files');
-  projectFiles.forEach(name => {
+  translationFiles.forEach(name => {
     const foundTranslations = parseTranslation(name);
     console.log(`Parsed '${name}' for ${Object.keys(foundTranslations).length} translation strings.`);
 
     const keys = Object.keys(foundTranslations);
-    keys.forEach(key => mapAddString(translationsMap, key));
+    keys.forEach(key => mapAddTranslationString(translationsMap, name, key));
   });
   const entry = marky.stop('parse-translation-files');
 

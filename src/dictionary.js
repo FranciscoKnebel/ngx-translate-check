@@ -11,4 +11,16 @@ function mapAddString(map, str) {
   }
 }
 
-export { inputFilesMap, translationsMap, mapAddString };
+function mapAddTranslationString(map, language, str) {
+  let foundLanguageMap = map.get(language);
+
+  if (!foundLanguageMap) {
+    map.set(language, new Map());
+
+    foundLanguageMap = map.get(language);
+  }
+
+  mapAddString(foundLanguageMap, str);
+}
+
+export { inputFilesMap, translationsMap, mapAddString, mapAddTranslationString };
