@@ -1,7 +1,6 @@
 import { readFile } from 'fs';
 import keysDiff from 'keys-diff';
 
-import { mapToJson, mapToObj } from '../utils/dictionary';
 import { writeJsonOrStdout } from '../utils/files';
 
 export default function (program) {
@@ -22,12 +21,9 @@ export default function (program) {
         const languages = [];
         for (const lang in translationsObj) {
           if (translationsObj.hasOwnProperty(lang)) {
-            // const element = translationsObj[lang];
-
             languages.push(lang);
           }
         }
-
 
         let response;
         if (options.base < 0) {
