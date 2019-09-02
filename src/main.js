@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import commander from 'commander';
 import path from 'path';
 import marky from 'marky';
@@ -77,4 +79,3 @@ function parseTranslationFiles(translationFiles) {
 
 program
   .parse(process.argv);
-
