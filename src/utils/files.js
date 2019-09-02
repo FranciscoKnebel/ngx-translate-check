@@ -1,5 +1,5 @@
 import glob from 'fast-glob';
-import { readFileSync } from 'fs';
+import { readFileSync, writeFile } from 'fs';
 
 function readGlob(inputPath, types = ['ts', 'html']) {
   const inputGlob = `${inputPath}/**/*.(${types.join('|')})`
@@ -53,4 +53,21 @@ function flattenObject(obj, parent, res = {}) {
   return res;
 }
 
-export { getTranslationFiles, getProjectFiles, parseFile, parseTranslation };
+function writeJsonOrStdout(jsonpath, data) {
+  console.log('');
+  if (jsonpath) {
+    let outputPath = jsonpath;
+    if (!jsonpath.endsWith('.json')) {
+      console.log("Appending .json to output file name.");
+      outputPath = outputPath.concat('.json');
+    }
+
+    writeFile(outputPath, JSON.stringify(data, null, "\t"), e => {
+      console.log(`Results were written to "${outputPath}" file.`);
+    });
+  } else {
+    console.log(data);
+  }
+}
+
+export { getTranslationFiles, getProjectFiles, parseFile, parseTranslation, writeJsonOrStdout };

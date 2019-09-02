@@ -1,6 +1,5 @@
 import path from 'path';
 import marky from 'marky';
-import { writeFile } from 'fs';
 
 import { getProjectFiles, getTranslationFiles, parseFile, parseTranslation } from '../utils/files';
 import { inputFilesMap, translationsMap, mapAddString, mapAddTranslationString, mapToJson, translationMapToObj, mapToObj } from '../utils/dictionary';
@@ -40,19 +39,7 @@ export default function(program) {
         }
 
         console.log('');
-        if (cmd.json) {
-          let outputPath = cmd.json;
-          if (!cmd.json.endsWith('.json')) {
-            console.log("Appending .json to output file name.");
-            outputPath = outputPath.concat('.json');
-          }
-
-          writeFile(outputPath, JSON.stringify(response, null, "\t"), e => {
-            console.log(`Results were written to "${outputPath}" file.`);
-          });
-        } else {
-          console.log(response);
-        }
+        writeJsonOrStdout(cmd.json, response);
       })
     });
 }
