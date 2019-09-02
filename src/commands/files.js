@@ -1,14 +1,17 @@
 import path from 'path';
 import marky from 'marky';
+import { writeFile } from 'fs';
 
 import { getProjectFiles, getTranslationFiles, parseFile, parseTranslation } from '../utils/files';
-import { inputFilesMap, translationsMap, mapAddString, mapAddTranslationString } from '../utils/dictionary';
+import { inputFilesMap, translationsMap, mapAddString, mapAddTranslationString, mapToJson, translationMapToObj, mapToObj } from '../utils/dictionary';
 
 export default function(program) {
   program
     .command('files <path>')
-    .option('--i18n <folder>', 'i18n translation files folder inside project.', 'assets/i18n')
+    .option('--i18n <folder>', 'i18n translation files folder inside project.', 'src/assets/i18n')
     .option('--i18nPath <path>', 'Path to translation folder if files are outside project.')
+    .option('--json <path>', 'Save output to <path> file.')
+    .description('Parses project files and i18n files to find amount of usage of i18n strings, outputting to stdout or a json file.')
     .action((projectPath, cmd) => {
       const options = {
         projectPath,
@@ -24,12 +27,32 @@ export default function(program) {
       ];
 
       Promise.all(filePromises).then(([projectFiles, translationFiles]) => {
-        console.log(`Total project files: ${projectFiles.length}`);
-        console.log(`Total translation files: ${translationFiles.length}`);
+        console.log(`Total project files found: ${projectFiles.length}`);
+        console.log(`Total translation files found: ${translationFiles.length}`);
 
         parseProjectFiles(projectFiles);
         console.log('');
         parseTranslationFiles(translationFiles);
+
+        const response = {
+          inputFiles: mapToObj(inputFilesMap),
+          translationFiles: translationMapToObj(translationsMap)
+        }
+
+        console.log('');
+        if (cmd.json) {
+          let outputPath = cmd.json;
+          if (!cmd.json.endsWith('.json')) {
+            console.log("Appending .json to output file name.");
+            outputPath = outputPath.concat('.json');
+          }
+
+          writeFile(outputPath, JSON.stringify(response, null, "\t"), e => {
+            console.log(`Results were written to "${outputPath}" file.`);
+          });
+        } else {
+          console.log(response);
+        }
       })
     });
 }
