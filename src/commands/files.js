@@ -1,8 +1,8 @@
 import path from 'path';
 import marky from 'marky';
 
-import { getProjectFiles, getTranslationFiles, parseFile, parseTranslation } from '../utils/files';
-import { inputFilesMap, translationsMap, mapAddString, mapAddTranslationString, mapToJson, translationMapToObj, mapToObj } from '../utils/dictionary';
+import { getProjectFiles, getTranslationFiles, parseFile, parseTranslation, writeJsonOrStdout } from '../utils/files';
+import { inputFilesMap, translationsMap, mapAddString, mapAddTranslationString, translationMapToObj, mapToObj } from '../utils/dictionary';
 
 export default function(program) {
   program

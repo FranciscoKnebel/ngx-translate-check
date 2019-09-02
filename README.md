@@ -3,9 +3,15 @@ CLI to test an Angular project using ng-translate to find missing and unused i18
 
 [![Issues](https://img.shields.io/github/issues-raw/FranciscoKnebel/ngx-translate-check.svg?style=flat-square)](https://github.com/FranciscoKnebel/ngx-translate-check/issues)
 
+## Prerequisites
+- Node & NPM
+
+
 ### Installing
 
-1. `npm install -g ngx-translate-check`
+```
+  $ npm install -g ngx-translate-check
+```
 
 ### Commands
 
@@ -15,6 +21,35 @@ CLI to test an Angular project using ng-translate to find missing and unused i18
 
 More info can be obtained by using the `--help` argument of the CLI.
 
+#### Example command usage:
+
+![files](assets/files.png)
+- Wrote to `output.json` the data obtained from test-project, which includes all strings used in the project and all the strings defined in the translation files.
+
+![files](assets/diff.png)
+- Used `output.json` from the `files` command to obtain the difference between the defined translation files.
+
+### TO-DO List
+
+#### More commands
+
+- [ ] Difference between translation and project files.
+
+- [ ] Improve project file parser to obtain missing strings that the current regex does not catch.
+
+## Versioning
+
+We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/FranciscoKnebel/ngx-translate-check/tags).
+
+
+## Authors
+
+Initial project implementation by [Francisco Knebel](https://github.com/franciscoknebel).
+
+Project idea credits to [Arthur Jacobs](https://github.com/asjacobs92), who suffered along with Angular development, while we survived reading broken JSON files due to a missing comma.
+
+See the full list of [contributors](https://github.com/FranciscoKnebel/ngx-translate-check/contributors) who participated in this project.
 
 ## License
 MIT License. [Click here for more information.](LICENSE.md)
+
