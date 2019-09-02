@@ -23,4 +23,13 @@ function mapAddTranslationString(map, language, str) {
   mapAddString(foundLanguageMap, str);
 }
 
-export { inputFilesMap, translationsMap, mapAddString, mapAddTranslationString };
+function mapToJson(map) {
+  return JSON.stringify([...map]);
+}
+
+function jsonToMap(json) {
+  return new Map(JSON.parse(json));
+}
+
+export { inputFilesMap, translationsMap, mapAddString, mapAddTranslationString, mapToJson, jsonToMap };
+
