@@ -1,6 +1,6 @@
 {
   "name": "ngx-translate-check",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CLI to test an Angular project using ngx-translate to find missing and unused i18n strings.",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",

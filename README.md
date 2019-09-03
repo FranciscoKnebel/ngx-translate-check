@@ -66,7 +66,7 @@ More info can be obtained by using the `--help` argument of the CLI.
 
 #### More commands
 
-- [ ] Difference between translation and project files.
+- [x] Difference between translation and project files.
 
 - [ ] Improve project file parser to obtain missing strings that the current regex does not catch.
 
