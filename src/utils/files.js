@@ -3,7 +3,10 @@ import { readFileSync, writeFile } from 'fs';
 
 function readGlob(inputPath, types = ['ts', 'html']) {
   const inputGlob = `${inputPath}/**/*.(${types.join('|')})`
-  return glob(inputGlob);
+
+  return glob(inputGlob, {
+    ignore: [`!${inputPath}/**/node_modules/**`]
+  });
 }
 
 function getTranslationFiles(i18nFolderPath) {
