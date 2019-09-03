@@ -33,6 +33,8 @@ export default function (program) {
 
         let response = {};
         languages.forEach(language => {
+          console.log(`Getting difference between input files and ${language}.`);
+
           const diff = keysDiff(inputKeys, translationsObj[language]);
           response[language] = {};
           response[language][`in input files, not in language ${language}`] = diff[0];
