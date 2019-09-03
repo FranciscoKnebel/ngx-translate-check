@@ -34,8 +34,8 @@ export default function(program) {
         parseTranslationFiles(translationFiles);
 
         const response = {
-          inputFiles: mapToObj(inputFilesMap),
-          translationFiles: translationMapToObj(translationsMap)
+          input: mapToObj(inputFilesMap),
+          translations: translationMapToObj(translationsMap)
         }
 
         console.log('');
@@ -48,10 +48,23 @@ function parseProjectFiles(projectFiles) {
   console.log('\nStarting to parse project files...');
 
   marky.mark('parse-project-files');
-  projectFiles.forEach(name => {
-    const foundStrings = parseFile(name);
-    // console.log(`Parsed '${name}' for ${foundStrings.length} keys.`);
-    foundStrings.forEach(str => mapAddString(inputFilesMap, str));
+  projectFiles.forEach(file => {
+    const foundStrings = parseFile(file);
+    foundStrings.forEach(str => {
+      const found = inputFilesMap.get(str);
+
+      if (found) {
+        inputFilesMap.set(str, {
+          amount: found.amount + 1,
+          files: [...found.files, file]
+        });
+      } else {
+        inputFilesMap.set(str, {
+          amount: 1,
+          files: [file]
+        });
+      }
+    });
   });
   const entry = marky.stop('parse-project-files');
 
@@ -60,7 +73,7 @@ function parseProjectFiles(projectFiles) {
 
   let totalTranslationsUsed = 0;
   for (const entry of inputFilesMap.entries()) {
-    totalTranslationsUsed += entry[1];
+    totalTranslationsUsed += entry[1].amount;
   }
   console.log(`Total translations used in project files: ${totalTranslationsUsed}`);
 }

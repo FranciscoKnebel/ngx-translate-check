@@ -16,7 +16,7 @@ export default function (program) {
       };
 
       readFile(options.file, 'utf-8', (e, data) => {
-        const translationsObj = JSON.parse(data).translationFiles;
+        const translationsObj = JSON.parse(data).translations;
 
         const languages = [];
         for (const lang in translationsObj) {

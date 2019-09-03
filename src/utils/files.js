@@ -11,7 +11,7 @@ function getTranslationFiles(i18nFolderPath) {
 }
 
 function getProjectFiles(projectPath) {
-  return readGlob(projectPath, ['ts', 'html']);
+  return readGlob(projectPath, ['ts', 'html', 'js']);
 }
 
 function parseFile(fileName) {
