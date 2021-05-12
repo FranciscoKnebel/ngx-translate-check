@@ -6,9 +6,11 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "rollup -c",
     "dev": "rollup -c --watch",
-    "patch-release": "npm version patch && npm publish && git push --follow-tags",
-    "minor-release": "npm version major && npm publish && git push --follow-tags",
-    "major-release": "npm version major && npm publish && git push --follow-tags"
+    "patch-release": "npm version patch",
+    "minor-release": "npm version major",
+    "major-release": "npm version major",
+    "version": "npm run build && git add -A bin",
+    "postversion": "npm publish && git push --follow-tags"
   },
   "main": "bin/ngx-translate-check",
   "bin": "bin/ngx-translate-check",
