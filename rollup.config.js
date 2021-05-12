@@ -1,9 +1,9 @@
 // rollup.config.js
 import json from 'rollup-plugin-json';
-import minify from 'rollup-plugin-babel-minify';
 import resolve from 'rollup-plugin-node-resolve';
 import commonjs from 'rollup-plugin-commonjs';
 import hashbang from 'rollup-plugin-hashbang';
+import { terser } from "rollup-plugin-terser";
 
 import pkg from './package.json';
 
@@ -26,9 +26,7 @@ export default {
       compact: true,
       namedExports: true
     }),
-    minify({
-      comments: false
-    })
+    terser()
   ],
   external: [
     'path',
