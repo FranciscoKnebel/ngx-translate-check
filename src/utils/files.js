@@ -9,12 +9,12 @@ function readGlob(inputPath, types = ['ts', 'html']) {
   });
 }
 
-function getTranslationFiles(i18nFolderPath) {
-  return readGlob(i18nFolderPath, ['json']);
+function getTranslationFiles(i18nFolderPath, fileTypes) {
+  return readGlob(i18nFolderPath, fileTypes);
 }
 
-function getProjectFiles(projectPath) {
-  return readGlob(projectPath, ['ts', 'html', 'js']);
+function getProjectFiles(projectPath, fileTypes) {
+  return readGlob(projectPath, fileTypes);
 }
 
 function parseFile(fileName) {

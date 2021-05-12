@@ -2,27 +2,34 @@ import path from 'path';
 import marky from 'marky';
 
 import { getProjectFiles, getTranslationFiles, parseFile, parseTranslation, writeJsonOrStdout } from '../utils/files';
-import { inputFilesMap, translationsMap, mapAddString, mapAddTranslationString, translationMapToObj, mapToObj } from '../utils/dictionary';
+import { inputFilesMap, translationsMap, mapAddTranslationString, translationMapToObj, mapToObj } from '../utils/dictionary';
 
 export default function(program) {
   program
     .command('files <path>')
     .option('--i18n <folder>', 'i18n translation files folder inside project.', 'src/assets/i18n')
     .option('--i18nPath <path>', 'Path to translation folder if files are outside project.')
+    .option('--i18nTypes <types>', 'comma separated string list of file types for i18n translation files', 'json')
+    .option('--inputTypes <types>', 'comma separated string list of file types for project input files', 'ts,html,js')
     .option('--json <path>', 'Save output to <path> file.')
     .description('Parses project files and i18n files to find amount of usage of i18n strings, outputting to stdout or a json file.')
     .action((projectPath, cmd) => {
       const options = {
         projectPath,
-        i18nPath: cmd.i18nPath ? cmd.i18nPath : path.join(projectPath, cmd.i18n)
+        i18nPath: cmd.i18nPath ? cmd.i18nPath : path.join(projectPath, cmd.i18n),
+        projectFileTypes: cmd.inputTypes.split(',').map(type => type.trim()),
+        translationFileTypes: cmd.i18nTypes.split(',').map(type => type.trim())
       }
 
       console.log(`Project path: "${options.projectPath}".`);
+      console.log(`Project input file types: ${options.projectFileTypes.join()}`);
       console.log(`i18n folder: "${options.i18nPath}".`);
+      console.log(`i18n file types: ${options.translationFileTypes.join()}`);
+      console.log('');
 
       const filePromises = [
-        getProjectFiles(options.projectPath),
-        getTranslationFiles(options.i18nPath)
+        getProjectFiles(options.projectPath, options.projectFileTypes),
+        getTranslationFiles(options.i18nPath, options.translationFileTypes)
       ];
 
       Promise.all(filePromises).then(([projectFiles, translationFiles]) => {
