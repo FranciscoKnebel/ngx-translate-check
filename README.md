@@ -15,7 +15,8 @@ CLI to test an Angular project using ng-translate to find missing and unused i18
 
 ### Commands
 
-* files: Parses project files and i18n files to find amount of usage of i18n strings, outputting to stdout or a json file.
+* files: Parses project files and i18n files to find usage of i18n strings. It recognizes `ngx-translate` pipe syntax across line breaks and TranslateService calls to `instant`, `get`, `stream`, and `getStreamOnTranslationChange`.
+  * Service call detection defaults to a variable named `translateService`; use `--translateService <name>` when your service uses a different variable name.
   * Output exports a JSON file, in the format below.
   * The `input` key shows all i18n strings found in your project .ts, .js and .html files, the amount of times they were found and in which files.
   * The `translations` key shows all the translation strings defined in each translation file.

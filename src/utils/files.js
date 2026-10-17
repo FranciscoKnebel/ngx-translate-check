@@ -17,24 +17,31 @@ function getProjectFiles(projectPath, fileTypes) {
   return readGlob(projectPath, fileTypes);
 }
 
-function parseFile(fileName) {
+function parseFile(fileName, translateServiceName = 'translateService') {
   const file = readFileSync(fileName, { encoding: 'utf8' });
+  const foundStrings = [];
 
-  // May start with '{{' and end with '}}', but not necessary.
-  // Internal string is separated by \' or \".
-  // String is filled with multiple dot separated words.
-  // After the string, whitespace with a pipe | separator.
-  // After the operator, the translate pipe.
-  // Ending the regex, whitespace and the optional '}}'.
-  const matched = file.match(
-    /({{)?( )*(\'|\")((\w|\-)\.?)*(\'|\")( )*\|( )*translate( )*(}})?/g
-  );
-
-  // Only return internal string of matches
-  let foundStrings = [];
-  if (matched && matched.length > 0) {
-    foundStrings = matched.map(str => str.match(/(\'|\")(.*)?(\'|\")/)[2]);
+  // Match translate pipes even when whitespace (including line breaks) surrounds the pipe.
+  const pipeRegex = /(['"])([\w-]+(?:\.[\w-]+)*)\1\s*\|\s*translate\b/g;
+  let matched;
+  while ((matched = pipeRegex.exec(file)) !== null) {
+    foundStrings.push(matched[2]);
   }
+
+  // TranslateService may be injected under a different variable name in each project.
+  if (translateServiceName) {
+    const escapedServiceName = translateServiceName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const serviceCallRegex = new RegExp(
+      "(?:^|[^$\\w])" + escapedServiceName +
+      "\\s*\\.\\s*(?:instant|get|stream|getStreamOnTranslationChange)\\s*\\(\\s*(['\"])([\\w-]+(?:\\.[\\w-]+)*)\\1",
+      'g'
+    );
+
+    while ((matched = serviceCallRegex.exec(file)) !== null) {
+      foundStrings.push(matched[2]);
+    }
+  }
+
   return foundStrings;
 }
 
