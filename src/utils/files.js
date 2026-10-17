@@ -28,6 +28,69 @@ function tokenizeCode(source) {
     return /[\w$]/.test(character);
   }
 
+  function decodeStringValue(value) {
+    let decoded = '';
+
+    for (let index = 0; index < value.length; index++) {
+      const character = value[index];
+      if (character !== '\\' || index + 1 >= value.length) {
+        decoded += character;
+        continue;
+      }
+
+      const escaped = value[++index];
+      switch (escaped) {
+        case 'b': decoded += '\b'; break;
+        case 'f': decoded += '\f'; break;
+        case 'n': decoded += '\n'; break;
+        case 'r': decoded += '\r'; break;
+        case 't': decoded += '\t'; break;
+        case 'v': decoded += '\v'; break;
+        case '0': decoded += '\0'; break;
+        case '\n': break;
+        case '\r':
+          if (value[index + 1] === '\n') index++;
+          break;
+        case 'x': {
+          const hex = value.slice(index + 1, index + 3);
+          if (/^[\da-fA-F]{2}$/.test(hex)) {
+            decoded += String.fromCharCode(parseInt(hex, 16));
+            index += 2;
+          } else {
+            decoded += escaped;
+          }
+          break;
+        }
+        case 'u': {
+          if (value[index + 1] === '{') {
+            const braceEnd = value.indexOf('}', index + 2);
+            const hex = braceEnd === -1 ? '' : value.slice(index + 2, braceEnd);
+            const codePoint = /^[\da-fA-F]{1,6}$/.test(hex) ? parseInt(hex, 16) : -1;
+            if (codePoint >= 0 && codePoint <= 0x10ffff) {
+              decoded += String.fromCodePoint(codePoint);
+              index = braceEnd;
+            } else {
+              decoded += escaped;
+            }
+          } else {
+            const hex = value.slice(index + 1, index + 5);
+            if (/^[\da-fA-F]{4}$/.test(hex)) {
+              decoded += String.fromCharCode(parseInt(hex, 16));
+              index += 4;
+            } else {
+              decoded += escaped;
+            }
+          }
+          break;
+        }
+        default:
+          decoded += escaped;
+      }
+    }
+
+    return decoded;
+  }
+
   function canStartRegularExpression() {
     const previous = tokens[tokens.length - 1];
     if (!previous) return true;
@@ -97,7 +160,7 @@ function tokenizeCode(source) {
       if (character === '\\') {
         index += 2;
       } else if (character === quote) {
-        tokens.push({ type: 'string', value: source.slice(start, index) });
+        tokens.push({ type: 'string', value: decodeStringValue(source.slice(start, index)) });
         return index + 1;
       } else if (character === '\n' || character === '\r') {
         return index;
@@ -121,7 +184,7 @@ function tokenizeCode(source) {
         index += 2;
       } else if (character === String.fromCharCode(96)) {
         if (!hasInterpolation) {
-          tokens.push({ type: 'string', value: source.slice(contentStart, index) });
+          tokens.push({ type: 'string', value: decodeStringValue(source.slice(contentStart, index)) });
         }
         return index + 1;
       } else if (character === '$' && source[index + 1] === '{') {
