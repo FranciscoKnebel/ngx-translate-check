@@ -321,27 +321,64 @@ function extractInlineAngularTemplates(source) {
   return templates;
 }
 
+function extractAngularTemplateText(source) {
+  const uncommentedSource = source.replace(/<!--[\s\S]*?-->/g, '');
+  const text = [];
+  let inTag = false;
+  let tagQuote = null;
+
+  for (let index = 0; index < uncommentedSource.length; index++) {
+    const character = uncommentedSource[index];
+
+    if (inTag) {
+      if (tagQuote) {
+        if (character === '\\') {
+          index++;
+        } else if (character === tagQuote) {
+          tagQuote = null;
+        }
+      } else if (character === "'" || character === '"') {
+        tagQuote = character;
+      } else if (character === '>') {
+        inTag = false;
+        text.push(' ');
+      }
+      continue;
+    }
+
+    if (character === '<' && /^\/?[A-Za-z!?]/.test(uncommentedSource.slice(index + 1))) {
+      inTag = true;
+      text.push(' ');
+    } else {
+      text.push(character);
+    }
+  }
+
+  return text.join('');
+}
+
 function extractAngularControlFlowSources(source) {
+  const activeTemplateSource = extractAngularTemplateText(source);
   const expressions = [];
   const controlFlowRegex = /@(?:if|for|switch|case)\s*\(/g;
   let matched;
 
-  while ((matched = controlFlowRegex.exec(source)) !== null) {
+  while ((matched = controlFlowRegex.exec(activeTemplateSource)) !== null) {
     const expressionStart = controlFlowRegex.lastIndex;
     let expressionEnd = expressionStart;
     let parenthesisDepth = 1;
 
-    while (expressionEnd < source.length && parenthesisDepth > 0) {
-      const character = source[expressionEnd];
-      const nextCharacter = source[expressionEnd + 1];
+    while (expressionEnd < activeTemplateSource.length && parenthesisDepth > 0) {
+      const character = activeTemplateSource[expressionEnd];
+      const nextCharacter = activeTemplateSource[expressionEnd + 1];
 
       if (character === "'" || character === '"' || character === String.fromCharCode(96)) {
         const quote = character;
         expressionEnd++;
-        while (expressionEnd < source.length) {
-          if (source[expressionEnd] === '\\') {
+        while (expressionEnd < activeTemplateSource.length) {
+          if (activeTemplateSource[expressionEnd] === '\\') {
             expressionEnd += 2;
-          } else if (source[expressionEnd] === quote) {
+          } else if (activeTemplateSource[expressionEnd] === quote) {
             expressionEnd++;
             break;
           } else {
@@ -350,11 +387,18 @@ function extractAngularControlFlowSources(source) {
         }
       } else if (character === '/' && nextCharacter === '/') {
         expressionEnd += 2;
-        while (expressionEnd < source.length && source[expressionEnd] !== '\n' && source[expressionEnd] !== '\r') expressionEnd++;
+        while (expressionEnd < activeTemplateSource.length &&
+          activeTemplateSource[expressionEnd] !== '\n' &&
+          activeTemplateSource[expressionEnd] !== '\r') {
+          expressionEnd++;
+        }
       } else if (character === '/' && nextCharacter === '*') {
         expressionEnd += 2;
-        while (expressionEnd < source.length && !(source[expressionEnd] === '*' && source[expressionEnd + 1] === '/')) expressionEnd++;
-        expressionEnd = Math.min(expressionEnd + 2, source.length);
+        while (expressionEnd < activeTemplateSource.length &&
+          !(activeTemplateSource[expressionEnd] === '*' && activeTemplateSource[expressionEnd + 1] === '/')) {
+          expressionEnd++;
+        }
+        expressionEnd = Math.min(expressionEnd + 2, activeTemplateSource.length);
       } else {
         if (character === '(') parenthesisDepth++;
         if (character === ')') parenthesisDepth--;
@@ -363,8 +407,13 @@ function extractAngularControlFlowSources(source) {
     }
 
     if (parenthesisDepth === 0) {
-      expressions.push(source.slice(expressionStart, expressionEnd - 1));
+      expressions.push(activeTemplateSource.slice(expressionStart, expressionEnd - 1));
     }
+  }
+
+  const letRegex = /@let\s+[A-Za-z_$][\w$]*(?:\s*:\s*[^=;\n]+)?\s*=\s*([\s\S]*?);/g;
+  while ((matched = letRegex.exec(activeTemplateSource)) !== null) {
+    expressions.push(matched[1]);
   }
 
   return expressions;
