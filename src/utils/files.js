@@ -28,7 +28,8 @@ function tokenizeCode(source) {
     return /[\w$]/.test(character);
   }
 
-  function decodeStringValue(value) {
+  function decodeStringValue(value, isTemplateLiteral = false) {
+    if (isTemplateLiteral) value = value.replace(/\r\n?/g, '\n');
     let decoded = '';
 
     for (let index = 0; index < value.length; index++) {
@@ -186,7 +187,7 @@ function tokenizeCode(source) {
         index += 2;
       } else if (character === String.fromCharCode(96)) {
         if (!hasInterpolation) {
-          tokens.push({ type: 'string', value: decodeStringValue(source.slice(contentStart, index)) });
+          tokens.push({ type: 'string', value: decodeStringValue(source.slice(contentStart, index), true) });
         }
         return index + 1;
       } else if (character === '$' && source[index + 1] === '{') {
@@ -621,6 +622,48 @@ function extractExpressionsFromTag(tag) {
   return expressions;
 }
 
+function decodeHtmlEntities(source) {
+  const namedEntities = {
+    amp: '&',
+    lt: '<',
+    gt: '>',
+    quot: '"',
+    apos: "'",
+    nbsp: '\u00a0',
+    copy: '\u00a9',
+    reg: '\u00ae',
+    trade: '\u2122',
+    hellip: '\u2026',
+    ndash: '\u2013',
+    mdash: '\u2014',
+    lsquo: '\u2018',
+    rsquo: '\u2019',
+    ldquo: '\u201c',
+    rdquo: '\u201d',
+    eacute: '\u00e9',
+    Eacute: '\u00c9',
+    aacute: '\u00e1',
+    Aacute: '\u00c1',
+    ntilde: '\u00f1',
+    Ntilde: '\u00d1',
+    ccedil: '\u00e7',
+    Ccedil: '\u00c7'
+  };
+
+  return source.replace(/&(#(?:[xX][\da-fA-F]+|\d+)|[A-Za-z][A-Za-z0-9]+);/g, (entity, reference) => {
+    if (reference[0] !== '#') return Object.prototype.hasOwnProperty.call(namedEntities, reference)
+      ? namedEntities[reference]
+      : entity;
+
+    const isHexadecimal = reference[1] === 'x' || reference[1] === 'X';
+    const codePoint = parseInt(reference.slice(isHexadecimal ? 2 : 1), isHexadecimal ? 16 : 10);
+    if (codePoint === 0 || codePoint > 0x10ffff || (codePoint >= 0xd800 && codePoint <= 0xdfff)) {
+      return '\ufffd';
+    }
+    return String.fromCodePoint(codePoint);
+  });
+}
+
 function extractAngularExpressionSources(source) {
   const expressions = [];
   let index = 0;
@@ -651,7 +694,7 @@ function extractAngularExpressionSources(source) {
   }
 
   expressions.push(...extractExpressionsFromText(source.slice(textStart)));
-  return expressions;
+  return expressions.map(decodeHtmlEntities);
 }
 
 function parseFile(fileName, translateServiceName = 'translateService') {
