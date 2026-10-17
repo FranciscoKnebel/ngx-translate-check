@@ -66,6 +66,10 @@ try {
 
   fs.writeFileSync(htmlFile, "<!-- this.translateService.get('COMMENT.HTML');\n 'COMMENT.PIPE'\n | translate -->");
   assert.deepStrictEqual(parseFile(htmlFile), []);
+  fs.writeFileSync(htmlFile, "<div title=\"@if (translateService.get('EXAMPLE.KEY'))\"></div>");
+  assert.deepStrictEqual(parseFile(htmlFile), []);
+  fs.writeFileSync(htmlFile, "@let label = 'LABEL.PIPE' | translate; @let other = translateService.instant('LABEL.SERVICE');");
+  assert.deepStrictEqual(parseFile(htmlFile).sort(), ['LABEL.PIPE', 'LABEL.SERVICE'].sort());
   fs.writeFileSync(htmlFile, "<button [title]=\"translateService.instant('BUTTON.TITLE')\" (click)=\"translateService.get('BUTTON.CLICK')\"></button><span>{{ translateService.instant('INTERPOLATION.TITLE') }}</span>");
   assert.deepStrictEqual(
     parseFile(htmlFile).sort(),
