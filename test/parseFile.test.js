@@ -29,6 +29,7 @@ const fixture = [
   "this.translateService.instant('UNICODE\\u002fKEY');",
   "this.translateService.get(['ARRAY\\x2fESCAPE']);",
   "this.translateService.get(`TEMPLATE\\u002fKEY`);",
+  "this.translateService.get('CRLF\\\r\nKEY');",
   'this.i18n.get(',
   '  "PROFILE.TITLE",',
   '  params',
@@ -66,7 +67,7 @@ try {
   );
   assert.deepStrictEqual(
     parseFile(testFile).sort(),
-    ['ERROR_UNKNOWN', 'errors/http:404', "QUOTE'KEY", 'UNICODE/KEY', 'ARRAY/ESCAPE', 'TEMPLATE/KEY', 'DEFAULT.TEMPLATE', 'DEFAULT.ARRAY.ONE', 'DEFAULT.ARRAY.TWO', 'errors/http:405'].sort()
+    ['ERROR_UNKNOWN', 'errors/http:404', "QUOTE'KEY", 'UNICODE/KEY', 'ARRAY/ESCAPE', 'TEMPLATE/KEY', 'CRLFKEY', 'DEFAULT.TEMPLATE', 'DEFAULT.ARRAY.ONE', 'DEFAULT.ARRAY.TWO', 'errors/http:405'].sort()
   );
 
   fs.writeFileSync(htmlFile, "<!-- this.translateService.get('COMMENT.HTML');\n 'COMMENT.PIPE'\n | translate -->");
