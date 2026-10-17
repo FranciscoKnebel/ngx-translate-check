@@ -51,6 +51,8 @@ function tokenizeCode(source) {
         case '\r':
           if (value[index + 1] === '\n') index++;
           break;
+        case '\u2028':
+        case '\u2029': break;
         case 'x': {
           const hex = value.slice(index + 1, index + 3);
           if (/^[\da-fA-F]{2}$/.test(hex)) {
@@ -158,7 +160,7 @@ function tokenizeCode(source) {
       const character = source[index];
 
       if (character === '\\') {
-        index += 2;
+        index += source[index + 1] === '\r' && source[index + 2] === '\n' ? 3 : 2;
       } else if (character === quote) {
         tokens.push({ type: 'string', value: decodeStringValue(source.slice(start, index)) });
         return index + 1;
