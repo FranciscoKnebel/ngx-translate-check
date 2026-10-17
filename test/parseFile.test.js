@@ -30,6 +30,7 @@ const fixture = [
   "this.translateService.get(['ARRAY\\x2fESCAPE']);",
   "this.translateService.get(`TEMPLATE\\u002fKEY`);",
   "this.translateService.get('CRLF\\\r\nKEY');",
+  "this.translateService.get(`TEMPLATE\r\nKEY`);",
   'this.i18n.get(',
   '  "PROFILE.TITLE",',
   '  params',
@@ -67,7 +68,7 @@ try {
   );
   assert.deepStrictEqual(
     parseFile(testFile).sort(),
-    ['ERROR_UNKNOWN', 'errors/http:404', "QUOTE'KEY", 'UNICODE/KEY', 'ARRAY/ESCAPE', 'TEMPLATE/KEY', 'CRLFKEY', 'DEFAULT.TEMPLATE', 'DEFAULT.ARRAY.ONE', 'DEFAULT.ARRAY.TWO', 'errors/http:405'].sort()
+    ['ERROR_UNKNOWN', 'errors/http:404', "QUOTE'KEY", 'UNICODE/KEY', 'ARRAY/ESCAPE', 'TEMPLATE/KEY', 'CRLFKEY', 'TEMPLATE\nKEY', 'DEFAULT.TEMPLATE', 'DEFAULT.ARRAY.ONE', 'DEFAULT.ARRAY.TWO', 'errors/http:405'].sort()
   );
 
   fs.writeFileSync(htmlFile, "<!-- this.translateService.get('COMMENT.HTML');\n 'COMMENT.PIPE'\n | translate -->");
@@ -97,6 +98,15 @@ try {
 
   fs.writeFileSync(htmlFile, "<div>{{ 'UNICODE\\u002fPIPE' | translate }}</div>");
   assert.deepStrictEqual(parseFile(htmlFile), ['UNICODE/PIPE']);
+
+  fs.writeFileSync(htmlFile, "<div>{{ 'A&amp;B' | translate }}</div>");
+  assert.deepStrictEqual(parseFile(htmlFile), ['A&B']);
+
+  fs.writeFileSync(htmlFile, "<div>{{ 'C&#x2f;D' | translate }}</div>");
+  assert.deepStrictEqual(parseFile(htmlFile), ['C/D']);
+
+  fs.writeFileSync(htmlFile, `<button [title]="translateService.instant('A&amp;B')"></button>`);
+  assert.deepStrictEqual(parseFile(htmlFile), ['A&B']);
   console.log('parseFile tests passed');
 } finally {
   fs.unlinkSync(testFile);
