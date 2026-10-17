@@ -32,6 +32,11 @@ const fixture = [
   "this.i18n.getStreamOnTranslationChange('WELCOME');",
   "this.i18n.get(`STATIC.TEMPLATE`);",
   "this.i18n.get(['ARRAY.ONE', `ARRAY.TWO`]);",
+  "this.i18n.get<string>('GENERIC.KEY');",
+  "this.i18n?.instant('OPTIONAL.KEY');",
+  "this.i18n!.get('ASSERTED.KEY');",
+  "if (condition) /i18n.get('REGEX.CONTENT')/.test(source);",
+  'const component = { template: `<span>{{ this.i18n.instant("INLINE.KEY") }}</span>` };',
   "this.translateService.get(`DEFAULT.TEMPLATE`);",
   "this.translateService.get(['DEFAULT.ARRAY.ONE', `DEFAULT.ARRAY.TWO`]);",
   "// this.i18n.get('COMMENT.LINE');",
@@ -49,7 +54,7 @@ try {
   fs.writeFileSync(testFile, fixture);
   assert.deepStrictEqual(
     parseFile(testFile, 'i18n').sort(),
-    ['BUTTON.SAVE', 'PROFILE.TITLE', 'STATUS.ACTIVE', 'WELCOME', 'STATIC.TEMPLATE', 'ARRAY.ONE', 'ARRAY.TWO'].sort()
+    ['BUTTON.SAVE', 'PROFILE.TITLE', 'STATUS.ACTIVE', 'WELCOME', 'STATIC.TEMPLATE', 'ARRAY.ONE', 'ARRAY.TWO', 'GENERIC.KEY', 'OPTIONAL.KEY', 'ASSERTED.KEY', 'INLINE.KEY'].sort()
   );
   assert.deepStrictEqual(
     parseFile(testFile).sort(),
