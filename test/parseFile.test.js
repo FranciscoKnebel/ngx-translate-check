@@ -30,6 +30,13 @@ const fixture = [
   ');',
   "this.i18n.stream('STATUS.ACTIVE');",
   "this.i18n.getStreamOnTranslationChange('WELCOME');",
+  "this.i18n.get(`STATIC.TEMPLATE`);",
+  "this.translateService.get(`DEFAULT.TEMPLATE`);",
+  "// this.i18n.get('COMMENT.LINE');",
+  "/* this.i18n.get('COMMENT.BLOCK'); */",
+  "const example = \"this.i18n.get('STRING.CONTENT')\";",
+  "const templateExample = `this.i18n.get('TEMPLATE.CONTENT')`;",
+  'this.i18n.get(`DYNAMIC.${locale}`);',
   "const label = 'BUTTON.SAVE'",
   '  |',
   '  translate;',
@@ -40,13 +47,15 @@ try {
   fs.writeFileSync(testFile, fixture);
   assert.deepStrictEqual(
     parseFile(testFile, 'i18n').sort(),
-    ['BUTTON.SAVE', 'PROFILE.TITLE', 'STATUS.ACTIVE', 'WELCOME'].sort()
+    ['BUTTON.SAVE', 'PROFILE.TITLE', 'STATUS.ACTIVE', 'WELCOME', 'STATIC.TEMPLATE'].sort()
   );
   assert.deepStrictEqual(
     parseFile(testFile).sort(),
-    ['BUTTON.SAVE', 'ERROR_UNKNOWN'].sort()
+    ['BUTTON.SAVE', 'ERROR_UNKNOWN', 'DEFAULT.TEMPLATE'].sort()
   );
 
+  fs.writeFileSync(htmlFile, "<!-- this.translateService.get('COMMENT.HTML'); -->");
+  assert.deepStrictEqual(parseFile(htmlFile), []);
   fs.writeFileSync(htmlFile, "<div>{{ 'MULTILINE.PIPE'\n |\n translate }}</div>");
   assert.deepStrictEqual(parseFile(htmlFile), ['MULTILINE.PIPE']);
   console.log('parseFile tests passed');
