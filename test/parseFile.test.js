@@ -25,6 +25,10 @@ const htmlFile = path.join(testDirectory, 'template.html');
 const fixture = [
   "this.translateService.instant('ERROR_UNKNOWN');",
   "this.translateService.instant('errors/http:404');",
+  "this.translateService.instant('QUOTE\\'KEY');",
+  "this.translateService.instant('UNICODE\\u002fKEY');",
+  "this.translateService.get(['ARRAY\\x2fESCAPE']);",
+  "this.translateService.get(`TEMPLATE\\u002fKEY`);",
   'this.i18n.get(',
   '  "PROFILE.TITLE",',
   '  params',
@@ -62,7 +66,7 @@ try {
   );
   assert.deepStrictEqual(
     parseFile(testFile).sort(),
-    ['ERROR_UNKNOWN', 'errors/http:404', 'DEFAULT.TEMPLATE', 'DEFAULT.ARRAY.ONE', 'DEFAULT.ARRAY.TWO', 'errors/http:405'].sort()
+    ['ERROR_UNKNOWN', 'errors/http:404', "QUOTE'KEY", 'UNICODE/KEY', 'ARRAY/ESCAPE', 'TEMPLATE/KEY', 'DEFAULT.TEMPLATE', 'DEFAULT.ARRAY.ONE', 'DEFAULT.ARRAY.TWO', 'errors/http:405'].sort()
   );
 
   fs.writeFileSync(htmlFile, "<!-- this.translateService.get('COMMENT.HTML');\n 'COMMENT.PIPE'\n | translate -->");
@@ -89,6 +93,9 @@ try {
 
   fs.writeFileSync(htmlFile, "<div>{{ 'errors/http:404' | translate }}</div>");
   assert.deepStrictEqual(parseFile(htmlFile), ['errors/http:404']);
+
+  fs.writeFileSync(htmlFile, "<div>{{ 'UNICODE\\u002fPIPE' | translate }}</div>");
+  assert.deepStrictEqual(parseFile(htmlFile), ['UNICODE/PIPE']);
   console.log('parseFile tests passed');
 } finally {
   fs.unlinkSync(testFile);
