@@ -34,7 +34,7 @@ function tokenizeCode(source) {
 
     if (
       previous.type === 'identifier' &&
-      ['return', 'throw', 'case', 'delete', 'void', 'typeof', 'instanceof', 'in', 'of', 'yield', 'await'].includes(previous.value)
+      ['return', 'throw', 'case', 'delete', 'void', 'typeof', 'instanceof', 'in', 'of', 'yield', 'await', 'else', 'do'].includes(previous.value)
     ) {
       return true;
     }
@@ -321,9 +321,58 @@ function extractInlineAngularTemplates(source) {
   return templates;
 }
 
+function extractAngularControlFlowSources(source) {
+  const expressions = [];
+  const controlFlowRegex = /@(?:if|for|switch|case)\s*\(/g;
+  let matched;
+
+  while ((matched = controlFlowRegex.exec(source)) !== null) {
+    const expressionStart = controlFlowRegex.lastIndex;
+    let expressionEnd = expressionStart;
+    let parenthesisDepth = 1;
+
+    while (expressionEnd < source.length && parenthesisDepth > 0) {
+      const character = source[expressionEnd];
+      const nextCharacter = source[expressionEnd + 1];
+
+      if (character === "'" || character === '"' || character === String.fromCharCode(96)) {
+        const quote = character;
+        expressionEnd++;
+        while (expressionEnd < source.length) {
+          if (source[expressionEnd] === '\\') {
+            expressionEnd += 2;
+          } else if (source[expressionEnd] === quote) {
+            expressionEnd++;
+            break;
+          } else {
+            expressionEnd++;
+          }
+        }
+      } else if (character === '/' && nextCharacter === '/') {
+        expressionEnd += 2;
+        while (expressionEnd < source.length && source[expressionEnd] !== '\n' && source[expressionEnd] !== '\r') expressionEnd++;
+      } else if (character === '/' && nextCharacter === '*') {
+        expressionEnd += 2;
+        while (expressionEnd < source.length && !(source[expressionEnd] === '*' && source[expressionEnd + 1] === '/')) expressionEnd++;
+        expressionEnd = Math.min(expressionEnd + 2, source.length);
+      } else {
+        if (character === '(') parenthesisDepth++;
+        if (character === ')') parenthesisDepth--;
+        expressionEnd++;
+      }
+    }
+
+    if (parenthesisDepth === 0) {
+      expressions.push(source.slice(expressionStart, expressionEnd - 1));
+    }
+  }
+
+  return expressions;
+}
+
 function extractAngularExpressionSources(source) {
   const uncommentedSource = source.replace(/<!--[\s\S]*?-->/g, '');
-  const expressions = [];
+  const expressions = extractAngularControlFlowSources(uncommentedSource);
   const interpolationRegex = /{{([\s\S]*?)}}/g;
   const bindingAttributeRegex = /(?:\[\([^)]+\)\]|\[[^\]]+\]|\([^)]*\)|\*[\w-]+|bind-[\w-]+|on-[\w-]+)\s*=\s*(["'])([\s\S]*?)\1/g;
   let matched;
@@ -342,21 +391,25 @@ function parseFile(fileName, translateServiceName = 'translateService') {
   const file = readFileSync(fileName, { encoding: 'utf8' });
   const foundStrings = [];
 
-  // Match translate pipes even when whitespace (including line breaks) surrounds the pipe.
-  const pipeRegex = /(['"])([\w-]+(?:\.[\w-]+)*)\1\s*\|\s*translate\b/g;
-  let matched;
-  while ((matched = pipeRegex.exec(file)) !== null) {
-    foundStrings.push(matched[2]);
-  }
+  const isHtmlFile = /\.html?$/i.test(fileName);
+  const inlineTemplateExpressions = isHtmlFile
+    ? []
+    : extractInlineAngularTemplates(file).flatMap(template => extractAngularExpressionSources(template));
+  const angularExpressionSources = isHtmlFile
+    ? extractAngularExpressionSources(file)
+    : inlineTemplateExpressions;
 
-  // Parse only Angular expressions from HTML templates; ordinary markup and comments are not code.
+  // Find translate pipes only in active Angular expressions, not comments or string examples.
+  const pipeRegex = /(['"])([\w-]+(?:\.[\w-]+)*)\1\s*\|\s*translate\b/g;
+  angularExpressionSources.forEach(expression => {
+    let matched;
+    while ((matched = pipeRegex.exec(expression)) !== null) {
+      foundStrings.push(matched[2]);
+    }
+  });
+
   if (translateServiceName) {
-    const isHtmlFile = /\.html?$/i.test(fileName);
-    const inlineTemplateExpressions = extractInlineAngularTemplates(file)
-      .flatMap(template => extractAngularExpressionSources(template));
-    const serviceCallSource = isHtmlFile
-      ? extractAngularExpressionSources(file).join('\n')
-      : [file, ...inlineTemplateExpressions].join('\n');
+    const serviceCallSource = isHtmlFile ? angularExpressionSources.join('\n') : [file, ...angularExpressionSources].join('\n');
     foundStrings.push(...extractServiceStrings(serviceCallSource, translateServiceName));
   }
 
