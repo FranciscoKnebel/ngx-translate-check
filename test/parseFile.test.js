@@ -24,6 +24,7 @@ const testFile = path.join(testDirectory, 'example.ts');
 const htmlFile = path.join(testDirectory, 'template.html');
 const fixture = [
   "this.translateService.instant('ERROR_UNKNOWN');",
+  "this.translateService.instant('errors/http:404');",
   'this.i18n.get(',
   '  "PROFILE.TITLE",',
   '  params',
@@ -40,7 +41,7 @@ const fixture = [
   "do /i18n.get('REGEX.DO')/.test(source); while (condition);",
   'const component = { template: `<span>{{ this.i18n.instant("INLINE.KEY") }}</span>` };',
   "this.translateService.get(`DEFAULT.TEMPLATE`);",
-  "this.translateService.get(['DEFAULT.ARRAY.ONE', `DEFAULT.ARRAY.TWO`]);",
+  "this.translateService.get(['DEFAULT.ARRAY.ONE', `DEFAULT.ARRAY.TWO`, 'errors/http:405']);",
   "// this.i18n.get('COMMENT.LINE');",
   "/* this.i18n.get('COMMENT.BLOCK'); */",
   "const example = \"this.i18n.get('STRING.CONTENT')\";",
@@ -61,7 +62,7 @@ try {
   );
   assert.deepStrictEqual(
     parseFile(testFile).sort(),
-    ['ERROR_UNKNOWN', 'DEFAULT.TEMPLATE', 'DEFAULT.ARRAY.ONE', 'DEFAULT.ARRAY.TWO'].sort()
+    ['ERROR_UNKNOWN', 'errors/http:404', 'DEFAULT.TEMPLATE', 'DEFAULT.ARRAY.ONE', 'DEFAULT.ARRAY.TWO', 'errors/http:405'].sort()
   );
 
   fs.writeFileSync(htmlFile, "<!-- this.translateService.get('COMMENT.HTML');\n 'COMMENT.PIPE'\n | translate -->");
@@ -77,14 +78,17 @@ try {
     parseFile(htmlFile).sort(),
     ['BUTTON.CLICK', 'BUTTON.TITLE', 'INTERPOLATION.TITLE'].sort()
   );
-  fs.writeFileSync(htmlFile, "@if (translateService.get('CONTROL.IF')) { } @for (item of items; track translateService.instant('CONTROL.FOR')) { } @switch (translateService.get('CONTROL.SWITCH')) { @case ('x') { } }");
+  fs.writeFileSync(htmlFile, "@if (translateService.get('CONTROL.IF')) { } @else if (translateService.instant('CONTROL.ELSE_IF')) { } @for (item of items; track translateService.instant('CONTROL.FOR')) { } @switch (translateService.get('CONTROL.SWITCH')) { @case ('x') { } }");
   assert.deepStrictEqual(
     parseFile(htmlFile).sort(),
-    ['CONTROL.IF', 'CONTROL.FOR', 'CONTROL.SWITCH'].sort()
+    ['CONTROL.IF', 'CONTROL.ELSE_IF', 'CONTROL.FOR', 'CONTROL.SWITCH'].sort()
   );
 
   fs.writeFileSync(htmlFile, "<div>{{ 'MULTILINE.PIPE'\n |\n translate }}</div>");
   assert.deepStrictEqual(parseFile(htmlFile), ['MULTILINE.PIPE']);
+
+  fs.writeFileSync(htmlFile, "<div>{{ 'errors/http:404' | translate }}</div>");
+  assert.deepStrictEqual(parseFile(htmlFile), ['errors/http:404']);
   console.log('parseFile tests passed');
 } finally {
   fs.unlinkSync(testFile);
