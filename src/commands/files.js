@@ -11,6 +11,7 @@ export default function(program) {
     .option('--i18nPath <path>', 'Path to translation folder if files are outside project.')
     .option('--i18nTypes <types>', 'comma separated string list of file types for i18n translation files', 'json')
     .option('--inputTypes <types>', 'comma separated string list of file types for project input files', 'ts,html,js')
+    .option('--translateService <name>', 'Name of the ngx-translate service variable in project files.', 'translateService')
     .option('--json <path>', 'Save output to <path> file.')
     .description('Parses project files and i18n files to find amount of usage of i18n strings, outputting to stdout or a json file.')
     .action((projectPath, cmd) => {
@@ -18,8 +19,10 @@ export default function(program) {
         projectPath,
         i18nPath: cmd.i18nPath ? cmd.i18nPath : path.join(projectPath, cmd.i18n),
         projectFileTypes: cmd.inputTypes.split(',').map(type => type.trim()),
-        translationFileTypes: cmd.i18nTypes.split(',').map(type => type.trim())
+        translationFileTypes: cmd.i18nTypes.split(',').map(type => type.trim()),
+        translateServiceName: cmd.translateService
       }
+      const translateServiceName = options.translateServiceName;
 
       console.log(`Project path: "${options.projectPath}".`);
       console.log(`Project input file types: ${options.projectFileTypes.join()}`);
@@ -36,7 +39,7 @@ export default function(program) {
         console.log(`Total project files found: ${projectFiles.length}`);
         console.log(`Total translation files found: ${translationFiles.length}`);
 
-        parseProjectFiles(projectFiles);
+        parseProjectFiles(projectFiles, translateServiceName);
         console.log('');
         parseTranslationFiles(translationFiles);
 
@@ -51,12 +54,12 @@ export default function(program) {
     });
 }
 
-function parseProjectFiles(projectFiles) {
+function parseProjectFiles(projectFiles, translateServiceName) {
   console.log('\nStarting to parse project files...');
 
   marky.mark('parse-project-files');
   projectFiles.forEach(file => {
-    const foundStrings = parseFile(file);
+    const foundStrings = parseFile(file, translateServiceName);
     foundStrings.forEach(str => {
       const found = inputFilesMap.get(str);
 

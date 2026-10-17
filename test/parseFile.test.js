@@ -1,0 +1,93 @@
+const assert = require('assert');
+const fs = require('fs');
+const Module = require('module');
+const os = require('os');
+const path = require('path');
+const babel = require('@babel/core');
+
+const projectRoot = path.resolve(__dirname, '..');
+const sourceFile = path.join(projectRoot, 'src', 'utils', 'files.js');
+const transformed = babel.transformFileSync(sourceFile, {
+  babelrc: false,
+  configFile: false,
+  presets: ['@babel/preset-env']
+});
+
+const parsedModule = new Module(sourceFile, module);
+parsedModule.filename = sourceFile;
+parsedModule.paths = Module._nodeModulePaths(path.dirname(sourceFile));
+parsedModule._compile(transformed.code, sourceFile);
+
+const { parseFile } = parsedModule.exports;
+const testDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'ngx-translate-check-'));
+const testFile = path.join(testDirectory, 'example.ts');
+const htmlFile = path.join(testDirectory, 'template.html');
+const fixture = [
+  "this.translateService.instant('ERROR_UNKNOWN');",
+  'this.i18n.get(',
+  '  "PROFILE.TITLE",',
+  '  params',
+  ');',
+  "this.i18n.stream('STATUS.ACTIVE');",
+  "this.i18n.getStreamOnTranslationChange('WELCOME');",
+  "this.i18n.get(`STATIC.TEMPLATE`);",
+  "this.i18n.get(['ARRAY.ONE', `ARRAY.TWO`]);",
+  "this.i18n.get<string>('GENERIC.KEY');",
+  "this.i18n?.instant('OPTIONAL.KEY');",
+  "this.i18n!.get('ASSERTED.KEY');",
+  "if (condition) /i18n.get('REGEX.CONTENT')/.test(source);",
+  "if (condition) { } else /i18n.get('REGEX.ELSE')/.test(source);",
+  "do /i18n.get('REGEX.DO')/.test(source); while (condition);",
+  'const component = { template: `<span>{{ this.i18n.instant("INLINE.KEY") }}</span>` };',
+  "this.translateService.get(`DEFAULT.TEMPLATE`);",
+  "this.translateService.get(['DEFAULT.ARRAY.ONE', `DEFAULT.ARRAY.TWO`]);",
+  "// this.i18n.get('COMMENT.LINE');",
+  "/* this.i18n.get('COMMENT.BLOCK'); */",
+  "const example = \"this.i18n.get('STRING.CONTENT')\";",
+  "const templateExample = `this.i18n.get('TEMPLATE.CONTENT')`;",
+  'this.i18n.get(`DYNAMIC.${locale}`);',
+  "const label = 'BUTTON.SAVE'",
+  "const pipeExample = \"'STRING.PIPE' | translate\";",
+  '  |',
+  '  translate;',
+  "otherService.instant('NOT_A_TRANSLATION');"
+].join('\n');
+
+try {
+  fs.writeFileSync(testFile, fixture);
+  assert.deepStrictEqual(
+    parseFile(testFile, 'i18n').sort(),
+    ['PROFILE.TITLE', 'STATUS.ACTIVE', 'WELCOME', 'STATIC.TEMPLATE', 'ARRAY.ONE', 'ARRAY.TWO', 'GENERIC.KEY', 'OPTIONAL.KEY', 'ASSERTED.KEY', 'INLINE.KEY'].sort()
+  );
+  assert.deepStrictEqual(
+    parseFile(testFile).sort(),
+    ['ERROR_UNKNOWN', 'DEFAULT.TEMPLATE', 'DEFAULT.ARRAY.ONE', 'DEFAULT.ARRAY.TWO'].sort()
+  );
+
+  fs.writeFileSync(htmlFile, "<!-- this.translateService.get('COMMENT.HTML');\n 'COMMENT.PIPE'\n | translate -->");
+  assert.deepStrictEqual(parseFile(htmlFile), []);
+  fs.writeFileSync(htmlFile, "<div title=\"@if (translateService.get('EXAMPLE.KEY'))\"></div>");
+  assert.deepStrictEqual(parseFile(htmlFile), []);
+  fs.writeFileSync(htmlFile, "@let label = 'LABEL.PIPE' | translate; @let other = translateService.instant('LABEL.SERVICE');");
+  assert.deepStrictEqual(parseFile(htmlFile).sort(), ['LABEL.PIPE', 'LABEL.SERVICE'].sort());
+  fs.writeFileSync(htmlFile, '<span>{{ "example \'FAKE.KEY\' | translate" }}</span>');
+  assert.deepStrictEqual(parseFile(htmlFile), []);
+  fs.writeFileSync(htmlFile, "<button [title]=\"translateService.instant('BUTTON.TITLE')\" (click)=\"translateService.get('BUTTON.CLICK')\"></button><span>{{ translateService.instant('INTERPOLATION.TITLE') }}</span>");
+  assert.deepStrictEqual(
+    parseFile(htmlFile).sort(),
+    ['BUTTON.CLICK', 'BUTTON.TITLE', 'INTERPOLATION.TITLE'].sort()
+  );
+  fs.writeFileSync(htmlFile, "@if (translateService.get('CONTROL.IF')) { } @for (item of items; track translateService.instant('CONTROL.FOR')) { } @switch (translateService.get('CONTROL.SWITCH')) { @case ('x') { } }");
+  assert.deepStrictEqual(
+    parseFile(htmlFile).sort(),
+    ['CONTROL.IF', 'CONTROL.FOR', 'CONTROL.SWITCH'].sort()
+  );
+
+  fs.writeFileSync(htmlFile, "<div>{{ 'MULTILINE.PIPE'\n |\n translate }}</div>");
+  assert.deepStrictEqual(parseFile(htmlFile), ['MULTILINE.PIPE']);
+  console.log('parseFile tests passed');
+} finally {
+  fs.unlinkSync(testFile);
+  fs.unlinkSync(htmlFile);
+  fs.rmdirSync(testDirectory);
+}
