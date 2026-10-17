@@ -219,10 +219,53 @@ function extractServiceStrings(source, translateServiceName) {
     const argument = tokens[cursor + 3];
     if (argument && argument.type === 'string' && keyPattern.test(argument.value)) {
       foundStrings.push(argument.value);
+    } else if (argument && argument.value === '[') {
+      let arrayDepth = 0;
+      let objectDepth = 0;
+      let parenthesisDepth = 0;
+
+      for (let argumentIndex = cursor + 3; argumentIndex < tokens.length; argumentIndex++) {
+        const token = tokens[argumentIndex];
+
+        if (token.value === '[') arrayDepth++;
+        if (token.value === ']') {
+          arrayDepth--;
+          if (arrayDepth === 0) break;
+          continue;
+        }
+
+        if (arrayDepth === 1 && objectDepth === 0 && parenthesisDepth === 0 &&
+          token.type === 'string' && keyPattern.test(token.value) &&
+          (tokens[argumentIndex - 1].value === '[' || tokens[argumentIndex - 1].value === ',')) {
+          foundStrings.push(token.value);
+        }
+
+        if (token.value === '{') objectDepth++;
+        if (token.value === '}' && objectDepth > 0) objectDepth--;
+        if (token.value === '(') parenthesisDepth++;
+        if (token.value === ')' && parenthesisDepth > 0) parenthesisDepth--;
+      }
     }
   }
 
   return foundStrings;
+}
+
+function extractAngularExpressionSources(source) {
+  const uncommentedSource = source.replace(/<!--[\s\S]*?-->/g, '');
+  const expressions = [];
+  const interpolationRegex = /{{([\s\S]*?)}}/g;
+  const bindingAttributeRegex = /(?:\[\([^)]+\)\]|\[[^\]]+\]|\([^)]*\)|\*[\w-]+|bind-[\w-]+|on-[\w-]+)\s*=\s*(["'])([\s\S]*?)\1/g;
+  let matched;
+
+  while ((matched = interpolationRegex.exec(uncommentedSource)) !== null) {
+    expressions.push(matched[1]);
+  }
+  while ((matched = bindingAttributeRegex.exec(uncommentedSource)) !== null) {
+    expressions.push(matched[2]);
+  }
+
+  return expressions;
 }
 
 function parseFile(fileName, translateServiceName = 'translateService') {
@@ -236,9 +279,11 @@ function parseFile(fileName, translateServiceName = 'translateService') {
     foundStrings.push(matched[2]);
   }
 
-  // Tokenize source code so service calls in comments or string contents are ignored.
+  // Parse only Angular expressions from HTML templates; ordinary markup and comments are not code.
   if (translateServiceName) {
-    foundStrings.push(...extractServiceStrings(file, translateServiceName));
+    const isHtmlFile = /\.html?$/i.test(fileName);
+    const serviceCallSource = isHtmlFile ? extractAngularExpressionSources(file).join('\n') : file;
+    foundStrings.push(...extractServiceStrings(serviceCallSource, translateServiceName));
   }
 
   return foundStrings;
