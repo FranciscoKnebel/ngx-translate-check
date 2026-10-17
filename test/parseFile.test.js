@@ -28,6 +28,9 @@ const fixture = [
   "this.translateService.instant('QUOTE\\'KEY');",
   "this.translateService.instant('UNICODE\\u002fKEY');",
   "this.translateService.get(['ARRAY\\x2fESCAPE']);",
+  "this.translateService.instant('OCTAL\\141B');",
+  "this.translateService.instant('BACKTRACK\\777KEY');",
+  "this.translateService.get(['NULL\\08ARRAY']);",
   "this.translateService.get(`TEMPLATE\\u002fKEY`);",
   "this.translateService.get('CRLF\\\r\nKEY');",
   "this.translateService.get(`TEMPLATE\r\nKEY`);",
@@ -68,7 +71,7 @@ try {
   );
   assert.deepStrictEqual(
     parseFile(testFile).sort(),
-    ['ERROR_UNKNOWN', 'errors/http:404', "QUOTE'KEY", 'UNICODE/KEY', 'ARRAY/ESCAPE', 'TEMPLATE/KEY', 'CRLFKEY', 'TEMPLATE\nKEY', 'DEFAULT.TEMPLATE', 'DEFAULT.ARRAY.ONE', 'DEFAULT.ARRAY.TWO', 'errors/http:405'].sort()
+    ['ERROR_UNKNOWN', 'errors/http:404', "QUOTE'KEY", 'UNICODE/KEY', 'ARRAY/ESCAPE', 'OCTALaB', 'BACKTRACK?7KEY', 'NULL\x008ARRAY', 'TEMPLATE/KEY', 'CRLFKEY', 'TEMPLATE\nKEY', 'DEFAULT.TEMPLATE', 'DEFAULT.ARRAY.ONE', 'DEFAULT.ARRAY.TWO', 'errors/http:405'].sort()
   );
 
   fs.writeFileSync(htmlFile, "<!-- this.translateService.get('COMMENT.HTML');\n 'COMMENT.PIPE'\n | translate -->");
