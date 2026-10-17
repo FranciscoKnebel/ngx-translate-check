@@ -36,6 +36,8 @@ const fixture = [
   "this.i18n?.instant('OPTIONAL.KEY');",
   "this.i18n!.get('ASSERTED.KEY');",
   "if (condition) /i18n.get('REGEX.CONTENT')/.test(source);",
+  "if (condition) { } else /i18n.get('REGEX.ELSE')/.test(source);",
+  "do /i18n.get('REGEX.DO')/.test(source); while (condition);",
   'const component = { template: `<span>{{ this.i18n.instant("INLINE.KEY") }}</span>` };',
   "this.translateService.get(`DEFAULT.TEMPLATE`);",
   "this.translateService.get(['DEFAULT.ARRAY.ONE', `DEFAULT.ARRAY.TWO`]);",
@@ -45,6 +47,7 @@ const fixture = [
   "const templateExample = `this.i18n.get('TEMPLATE.CONTENT')`;",
   'this.i18n.get(`DYNAMIC.${locale}`);',
   "const label = 'BUTTON.SAVE'",
+  "const pipeExample = \"'STRING.PIPE' | translate\";",
   '  |',
   '  translate;',
   "otherService.instant('NOT_A_TRANSLATION');"
@@ -54,20 +57,26 @@ try {
   fs.writeFileSync(testFile, fixture);
   assert.deepStrictEqual(
     parseFile(testFile, 'i18n').sort(),
-    ['BUTTON.SAVE', 'PROFILE.TITLE', 'STATUS.ACTIVE', 'WELCOME', 'STATIC.TEMPLATE', 'ARRAY.ONE', 'ARRAY.TWO', 'GENERIC.KEY', 'OPTIONAL.KEY', 'ASSERTED.KEY', 'INLINE.KEY'].sort()
+    ['PROFILE.TITLE', 'STATUS.ACTIVE', 'WELCOME', 'STATIC.TEMPLATE', 'ARRAY.ONE', 'ARRAY.TWO', 'GENERIC.KEY', 'OPTIONAL.KEY', 'ASSERTED.KEY', 'INLINE.KEY'].sort()
   );
   assert.deepStrictEqual(
     parseFile(testFile).sort(),
-    ['BUTTON.SAVE', 'ERROR_UNKNOWN', 'DEFAULT.TEMPLATE', 'DEFAULT.ARRAY.ONE', 'DEFAULT.ARRAY.TWO'].sort()
+    ['ERROR_UNKNOWN', 'DEFAULT.TEMPLATE', 'DEFAULT.ARRAY.ONE', 'DEFAULT.ARRAY.TWO'].sort()
   );
 
-  fs.writeFileSync(htmlFile, "<!-- this.translateService.get('COMMENT.HTML'); -->");
+  fs.writeFileSync(htmlFile, "<!-- this.translateService.get('COMMENT.HTML');\n 'COMMENT.PIPE'\n | translate -->");
   assert.deepStrictEqual(parseFile(htmlFile), []);
   fs.writeFileSync(htmlFile, "<button [title]=\"translateService.instant('BUTTON.TITLE')\" (click)=\"translateService.get('BUTTON.CLICK')\"></button><span>{{ translateService.instant('INTERPOLATION.TITLE') }}</span>");
   assert.deepStrictEqual(
     parseFile(htmlFile).sort(),
     ['BUTTON.CLICK', 'BUTTON.TITLE', 'INTERPOLATION.TITLE'].sort()
   );
+  fs.writeFileSync(htmlFile, "@if (translateService.get('CONTROL.IF')) { } @for (item of items; track translateService.instant('CONTROL.FOR')) { } @switch (translateService.get('CONTROL.SWITCH')) { @case ('x') { } }");
+  assert.deepStrictEqual(
+    parseFile(htmlFile).sort(),
+    ['CONTROL.IF', 'CONTROL.FOR', 'CONTROL.SWITCH'].sort()
+  );
+
   fs.writeFileSync(htmlFile, "<div>{{ 'MULTILINE.PIPE'\n |\n translate }}</div>");
   assert.deepStrictEqual(parseFile(htmlFile), ['MULTILINE.PIPE']);
   console.log('parseFile tests passed');
