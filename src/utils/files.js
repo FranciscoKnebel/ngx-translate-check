@@ -47,7 +47,6 @@ function tokenizeCode(source) {
         case 'r': decoded += '\r'; break;
         case 't': decoded += '\t'; break;
         case 'v': decoded += '\v'; break;
-        case '0': decoded += '\0'; break;
         case '\n': break;
         case '\r':
           if (value[index + 1] === '\n') index++;
@@ -86,8 +85,29 @@ function tokenizeCode(source) {
           }
           break;
         }
-        default:
+        default: {
+          if (escaped >= '0' && escaped <= '7') {
+            // Legacy octal escape from non-strict JavaScript: \0 through \377,
+            // consuming the longest prefix of up to three octal digits that
+            // stays within a single character code.
+            let digits = escaped;
+            while (digits.length < 3 && /^[0-7]$/.test(value[index + 1] || '')) {
+              digits += value[++index];
+            }
+
+            let charCode = parseInt(digits, 8);
+            while (charCode > 255 && digits.length > 1) {
+              index--;
+              digits = digits.slice(0, -1);
+              charCode = parseInt(digits, 8);
+            }
+
+            decoded += String.fromCharCode(charCode);
+            break;
+          }
+
           decoded += escaped;
+        }
       }
     }
 
