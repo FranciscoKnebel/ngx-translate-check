@@ -39,6 +39,21 @@ function tokenizeCode(source) {
       return true;
     }
 
+    if (previous.type === 'punctuator' && previous.value === ')') {
+      let parenthesisDepth = 0;
+
+      for (let index = tokens.length - 1; index >= 0; index--) {
+        if (tokens[index].value === ')') parenthesisDepth++;
+        if (tokens[index].value === '(') parenthesisDepth--;
+
+        if (parenthesisDepth === 0) {
+          const condition = tokens[index - 1];
+          return condition && condition.type === 'identifier' &&
+            ['if', 'while', 'for', 'with', 'switch', 'catch'].includes(condition.value);
+        }
+      }
+    }
+
     return previous.type === 'punctuator' &&
       ['(', '{', '[', ',', ';', '=', '!', ':', '?', '&', '|', '+', '-', '*', '%', '^', '~', '<', '>'].includes(previous.value);
   }
@@ -211,12 +226,47 @@ function extractServiceStrings(source, translateServiceName) {
       }
     }
 
-    if (!matchesServicePath || !tokens[cursor] || tokens[cursor].value !== '.') continue;
-    const method = tokens[cursor + 1];
-    if (!method || method.type !== 'identifier' || !methods.includes(method.value)) continue;
-    if (!tokens[cursor + 2] || tokens[cursor + 2].value !== '(') continue;
+    if (!matchesServicePath) continue;
 
-    const argument = tokens[cursor + 3];
+    let methodIndex = cursor;
+    if (tokens[methodIndex] && tokens[methodIndex].value === '?' &&
+      tokens[methodIndex + 1] && tokens[methodIndex + 1].value === '.') {
+      methodIndex += 2;
+    } else if (tokens[methodIndex] && tokens[methodIndex].value === '!' &&
+      tokens[methodIndex + 1] && tokens[methodIndex + 1].value === '.') {
+      methodIndex += 2;
+    } else if (tokens[methodIndex] && tokens[methodIndex].value === '.') {
+      methodIndex++;
+    } else {
+      continue;
+    }
+
+    const method = tokens[methodIndex];
+    if (!method || method.type !== 'identifier' || !methods.includes(method.value)) continue;
+
+    let callParenthesisIndex = methodIndex + 1;
+    if (tokens[callParenthesisIndex] && tokens[callParenthesisIndex].value === '<') {
+      let typeArgumentDepth = 0;
+      let typeArgumentsClosed = false;
+
+      for (let typeIndex = callParenthesisIndex; typeIndex < tokens.length; typeIndex++) {
+        if (tokens[typeIndex].value === '<') typeArgumentDepth++;
+        if (tokens[typeIndex].value === '>') {
+          typeArgumentDepth--;
+          if (typeArgumentDepth === 0) {
+            callParenthesisIndex = typeIndex + 1;
+            typeArgumentsClosed = true;
+            break;
+          }
+        }
+      }
+
+      if (!typeArgumentsClosed) continue;
+    }
+
+    if (!tokens[callParenthesisIndex] || tokens[callParenthesisIndex].value !== '(') continue;
+    const argumentStart = callParenthesisIndex + 1;
+    const argument = tokens[argumentStart];
     if (argument && argument.type === 'string' && keyPattern.test(argument.value)) {
       foundStrings.push(argument.value);
     } else if (argument && argument.value === '[') {
@@ -224,7 +274,7 @@ function extractServiceStrings(source, translateServiceName) {
       let objectDepth = 0;
       let parenthesisDepth = 0;
 
-      for (let argumentIndex = cursor + 3; argumentIndex < tokens.length; argumentIndex++) {
+      for (let argumentIndex = argumentStart; argumentIndex < tokens.length; argumentIndex++) {
         const token = tokens[argumentIndex];
 
         if (token.value === '[') arrayDepth++;
@@ -249,6 +299,26 @@ function extractServiceStrings(source, translateServiceName) {
   }
 
   return foundStrings;
+}
+
+function extractInlineAngularTemplates(source) {
+  const tokens = tokenizeCode(source);
+  const templates = [];
+
+  for (let index = 0; index < tokens.length; index++) {
+    if (
+      tokens[index].type === 'identifier' &&
+      tokens[index].value === 'template' &&
+      tokens[index + 1] &&
+      tokens[index + 1].value === ':' &&
+      tokens[index + 2] &&
+      tokens[index + 2].type === 'string'
+    ) {
+      templates.push(tokens[index + 2].value);
+    }
+  }
+
+  return templates;
 }
 
 function extractAngularExpressionSources(source) {
@@ -282,7 +352,11 @@ function parseFile(fileName, translateServiceName = 'translateService') {
   // Parse only Angular expressions from HTML templates; ordinary markup and comments are not code.
   if (translateServiceName) {
     const isHtmlFile = /\.html?$/i.test(fileName);
-    const serviceCallSource = isHtmlFile ? extractAngularExpressionSources(file).join('\n') : file;
+    const inlineTemplateExpressions = extractInlineAngularTemplates(file)
+      .flatMap(template => extractAngularExpressionSources(template));
+    const serviceCallSource = isHtmlFile
+      ? extractAngularExpressionSources(file).join('\n')
+      : [file, ...inlineTemplateExpressions].join('\n');
     foundStrings.push(...extractServiceStrings(serviceCallSource, translateServiceName));
   }
 
