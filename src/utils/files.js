@@ -198,7 +198,6 @@ function extractServiceStrings(source, translateServiceName) {
 
   const servicePath = serviceName.split(/\s*\.\s*/);
   const methods = ['instant', 'get', 'stream', 'getStreamOnTranslationChange'];
-  const keyPattern = /^[\w-]+(?:\.[\w-]+)*$/;
   const tokens = tokenizeCode(source);
   const foundStrings = [];
 
@@ -267,7 +266,7 @@ function extractServiceStrings(source, translateServiceName) {
     if (!tokens[callParenthesisIndex] || tokens[callParenthesisIndex].value !== '(') continue;
     const argumentStart = callParenthesisIndex + 1;
     const argument = tokens[argumentStart];
-    if (argument && argument.type === 'string' && keyPattern.test(argument.value)) {
+    if (argument && argument.type === 'string' && argument.value.length > 0) {
       foundStrings.push(argument.value);
     } else if (argument && argument.value === '[') {
       let arrayDepth = 0;
@@ -285,7 +284,7 @@ function extractServiceStrings(source, translateServiceName) {
         }
 
         if (arrayDepth === 1 && objectDepth === 0 && parenthesisDepth === 0 &&
-          token.type === 'string' && keyPattern.test(token.value) &&
+          token.type === 'string' && token.value.length > 0 &&
           (tokens[argumentIndex - 1].value === '[' || tokens[argumentIndex - 1].value === ',')) {
           foundStrings.push(token.value);
         }
@@ -359,7 +358,7 @@ function extractAngularTemplateText(source) {
 
 function extractAngularControlFlowSources(source) {
   const expressions = [];
-  const controlFlowRegex = /@(?:if|for|switch|case)\s*\(/g;
+  const controlFlowRegex = /@(?:(?:if|for|switch|case)|else\s+if)\s*\(/g;
   let matched;
 
   while ((matched = controlFlowRegex.exec(source)) !== null) {
@@ -603,13 +602,12 @@ function parseFile(fileName, translateServiceName = 'translateService') {
     : inlineTemplateExpressions;
 
   // Tokenize Angular expressions so pipe examples inside strings are ignored.
-  const keyPattern = /^[\w-]+(?:\.[\w-]+)*$/;
   angularExpressionSources.forEach(expression => {
     const tokens = tokenizeCode(expression);
     for (let index = 0; index < tokens.length - 2; index++) {
       if (
         tokens[index].type === 'string' &&
-        keyPattern.test(tokens[index].value) &&
+        tokens[index].value.length > 0 &&
         tokens[index + 1].value === '|' &&
         tokens[index + 2].type === 'identifier' &&
         tokens[index + 2].value === 'translate'
