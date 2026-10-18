@@ -209,7 +209,7 @@ function tokenizeCode(source, stringEscapeMode = 'javascript') {
       } else if (character === quote) {
         tokens.push({ type: 'string', value: decodeStringValue(source.slice(start, index), false, stringEscapeMode === 'angular') });
         return index + 1;
-      } else if (character === '\n' || character === '\r') {
+      } else if ((character === '\n' || character === '\r') && stringEscapeMode !== 'angular') {
         return index;
       } else {
         index++;
