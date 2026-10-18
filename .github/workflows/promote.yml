@@ -1,0 +1,56 @@
+name: Promote npm version
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Already published version to promote (for example, 2.0.0)"
+        required: true
+        type: string
+      dist_tag:
+        description: "npm distribution tag to update"
+        required: true
+        type: choice
+        options:
+          - latest
+          - next
+          - beta
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-promote-${{ inputs.dist_tag }}
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    if: github.repository == 'FranciscoKnebel/ngx-translate-check'
+    runs-on: ubuntu-26.04
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 26
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - run: npm install --global npm@12.2.0
+      - name: Validate and promote existing npm package version
+        env:
+          PACKAGE_VERSION: ${{ inputs.version }}
+          DIST_TAG: ${{ inputs.dist_tag }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$PACKAGE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Enter an existing stable semver version"
+            exit 1
+          fi
+          npm view "ngx-translate-check@$PACKAGE_VERSION" version
+          npm dist-tag add "ngx-translate-check@$PACKAGE_VERSION" "$DIST_TAG"
+          npm dist-tag ls ngx-translate-check

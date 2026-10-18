@@ -1,24 +1,11 @@
-const assert = require('assert');
-const fs = require('fs');
-const Module = require('module');
-const os = require('os');
-const path = require('path');
-const babel = require('@babel/core');
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import test from 'node:test';
+import { parseFile } from '../dist/utils/parser.js';
 
-const projectRoot = path.resolve(__dirname, '..');
-const sourceFile = path.join(projectRoot, 'src', 'utils', 'files.js');
-const transformed = babel.transformFileSync(sourceFile, {
-  babelrc: false,
-  configFile: false,
-  presets: ['@babel/preset-env']
-});
-
-const parsedModule = new Module(sourceFile, module);
-parsedModule.filename = sourceFile;
-parsedModule.paths = Module._nodeModulePaths(path.dirname(sourceFile));
-parsedModule._compile(transformed.code, sourceFile);
-
-const { parseFile } = parsedModule.exports;
+test('preserves parser regressions from the 1.x main branch', () => {
 const testDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'ngx-translate-check-'));
 const testFile = path.join(testDirectory, 'example.ts');
 const htmlFile = path.join(testDirectory, 'template.html');
@@ -71,11 +58,11 @@ try {
   fs.writeFileSync(testFile, fixture);
   assert.deepStrictEqual(
     parseFile(testFile, 'i18n').sort(),
-    ['PROFILE.TITLE', 'STATUS.ACTIVE', 'WELCOME', 'STATIC.TEMPLATE', 'ARRAY.ONE', 'ARRAY.TWO', 'GENERIC.KEY', 'GENERIC.ESCAPED_CLOSING', 'GENERIC.ESCAPED_OPENING', 'OPTIONAL.KEY', 'ASSERTED.KEY', 'INLINE.KEY'].sort()
+    ['PROFILE.TITLE', 'STATUS.ACTIVE', 'WELCOME', 'STATIC.TEMPLATE', 'ARRAY.ONE', 'ARRAY.TWO', 'GENERIC.KEY', 'OPTIONAL.KEY', 'ASSERTED.KEY', 'INLINE.KEY'].sort()
   );
   assert.deepStrictEqual(
     parseFile(testFile).sort(),
-    ['ERROR_UNKNOWN', 'errors/http:404', 'ARRAY', ']', 'B', '[', 'C', '{', 'D', '(', 'E', "QUOTE'KEY", 'UNICODE/KEY', 'ARRAY/ESCAPE', 'OCTALaB', 'BACKTRACK?7KEY', 'NULL\x008ARRAY', 'TEMPLATE/KEY', 'CRLFKEY', 'TEMPLATE\nKEY', 'DEFAULT.TEMPLATE', 'DEFAULT.ARRAY.ONE', 'DEFAULT.ARRAY.TWO', 'errors/http:405'].sort()
+    ['ERROR_UNKNOWN', 'errors/http:404', 'ARRAY', ']', 'B', '[', 'C', '{', 'D', '(', 'E', "QUOTE'KEY", 'UNICODE/KEY', 'ARRAY/ESCAPE', 'OCTALaB', 'BACKTRACK?7KEY', 'NULL\x008ARRAY', 'TEMPLATE/KEY', 'CRLFKEY', 'TEMPLATE\nKEY', 'DEFAULT.TEMPLATE', 'DEFAULT.ARRAY.ONE', 'DEFAULT.ARRAY.TWO', 'errors/http:405', 'GENERIC.ESCAPED_CLOSING', 'GENERIC.ESCAPED_OPENING'].sort()
   );
 
   fs.writeFileSync(htmlFile, "<!-- this.translateService.get('COMMENT.HTML');\n 'COMMENT.PIPE'\n | translate -->");
@@ -148,10 +135,8 @@ try {
 
   fs.writeFileSync(htmlFile, `<button [title]="translateService.instant('A&amp;B')"></button>`);
   assert.deepStrictEqual(parseFile(htmlFile), ['A&B']);
-  console.log('parseFile tests passed');
 } finally {
-  fs.unlinkSync(testFile);
-  fs.unlinkSync(htmlFile);
-  fs.rmdirSync(testDirectory);
+  fs.rmSync(testDirectory, { recursive: true, force: true });
 }
+});
 

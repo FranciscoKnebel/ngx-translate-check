@@ -1,20 +1,29 @@
 {
   "name": "ngx-translate-check",
-  "version": "1.0.2",
+  "version": "2.0.0",
   "description": "CLI to test an Angular project using ngx-translate to find missing and unused i18n strings.",
-  "scripts": {
-    "test": "node test/parseFile.test.js",
-    "build": "rollup -c",
-    "dev": "rollup -c --watch",
-    "patch-release": "npm version patch",
-    "minor-release": "npm version major",
-    "major-release": "npm version major",
-    "version": "npm run build && git add -A bin",
-    "postversion": "npm publish && git push --follow-tags"
+  "type": "module",
+  "engines": {
+    "node": ">=24"
   },
-  "main": "bin/ngx-translate-check",
-  "bin": "bin/ngx-translate-check",
-  "src": "src/main.js",
+  "scripts": {
+    "build": "tsc --project tsconfig.json && node -e \"require('node:fs').chmodSync('dist/main.js', 0o755)\"",
+    "dev": "tsc --project tsconfig.json --watch",
+    "typecheck": "tsc --project tsconfig.json --noEmit",
+    "lint": "eslint src test",
+    "test": "npm run build && node --test",
+    "prepack": "npm run build",
+    "release:patch": "npm version patch",
+    "release:minor": "npm version minor",
+    "release:major": "npm version major"
+  },
+  "main": "./dist/main.js",
+  "bin": {
+    "ngx-translate-check": "./dist/main.js"
+  },
+  "files": [
+    "dist"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/FranciscoKnebel/ngx-translate-check.git"
@@ -31,22 +40,13 @@
   },
   "homepage": "https://github.com/FranciscoKnebel/ngx-translate-check#readme",
   "dependencies": {
-    "commander": "^3.0.2",
-    "fast-glob": "^3.2.5",
-    "glob": "^7.1.7",
-    "keys-diff": "^1.0.8",
-    "marky": "^1.2.2"
+    "commander": "15.0.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.14.0",
-    "@babel/preset-env": "^7.14.1",
-    "rollup": "^2.47.0",
-    "rollup-plugin-add-shebang": "^0.3.1",
-    "rollup-plugin-commonjs": "^10.1.0",
-    "rollup-plugin-hashbang": "^2.2.2",
-    "rollup-plugin-json": "^4.0.0",
-    "rollup-plugin-node-resolve": "^5.2.0",
-    "rollup-plugin-terser": "^7.0.2"
-  },
-  "files": []
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.6.5",
+    "eslint": "10.13.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.2"
+  }
 }

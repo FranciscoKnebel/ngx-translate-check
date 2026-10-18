@@ -1,36 +1,24 @@
-import glob from 'fast-glob';
-import { readFileSync, writeFile } from 'fs';
+import { readFileSync } from 'node:fs';
 // Generated from Angular's WHATWG named-entity table, including its ngsp extension.
-import namedEntities from './htmlEntities.json';
+import namedEntities from './htmlEntities.json' with { type: 'json' };
 
-function readGlob(inputPath, types = ['ts', 'html']) {
-  const inputGlob = `${inputPath}/**/*.(${types.join('|')})`
-
-  return glob(inputGlob, {
-    ignore: [`!${inputPath}/**/node_modules/**`]
-  });
+interface Token {
+  type: string;
+  value: string;
 }
 
-function getTranslationFiles(i18nFolderPath, fileTypes) {
-  return readGlob(i18nFolderPath, fileTypes);
-}
+function tokenizeCode(source: string, stringEscapeMode = 'javascript'): Token[] {
+  const tokens: Token[] = [];
 
-function getProjectFiles(projectPath, fileTypes) {
-  return readGlob(projectPath, fileTypes);
-}
-
-function tokenizeCode(source, stringEscapeMode = 'javascript') {
-  const tokens = [];
-
-  function isIdentifierStart(character) {
-    return /[A-Za-z_$]/.test(character);
+  function isIdentifierStart(character: string | undefined): boolean {
+    return character !== undefined && /[A-Za-z_$]/.test(character);
   }
 
-  function isIdentifierPart(character) {
-    return /[\w$]/.test(character);
+  function isIdentifierPart(character: string | undefined): boolean {
+    return character !== undefined && /[\w$]/.test(character);
   }
 
-  function decodeStringValue(value, isTemplateLiteral = false, isAngularExpression = false) {
+  function decodeStringValue(value: string, isTemplateLiteral = false, isAngularExpression = false): string {
     if (isTemplateLiteral) value = value.replace(/\r\n?/g, '\n');
     let decoded = '';
 
@@ -138,7 +126,7 @@ function tokenizeCode(source, stringEscapeMode = 'javascript') {
     return decoded;
   }
 
-  function canStartRegularExpression() {
+  function canStartRegularExpression(): boolean {
     const previous = tokens[tokens.length - 1];
     if (!previous) return true;
 
@@ -168,7 +156,7 @@ function tokenizeCode(source, stringEscapeMode = 'javascript') {
       ['(', '{', '[', ',', ';', '=', '!', ':', '?', '&', '|', '+', '-', '*', '%', '^', '~', '<', '>'].includes(previous.value);
   }
 
-  function skipRegularExpression(index) {
+  function skipRegularExpression(index: number): number {
     let inCharacterClass = false;
     index++;
 
@@ -197,7 +185,7 @@ function tokenizeCode(source, stringEscapeMode = 'javascript') {
     return index;
   }
 
-  function readQuotedString(index, quote) {
+  function readQuotedString(index: number, quote: string): number {
     const start = index + 1;
     index++;
 
@@ -219,7 +207,7 @@ function tokenizeCode(source, stringEscapeMode = 'javascript') {
     return index;
   }
 
-  function readTemplate(index) {
+  function readTemplate(index: number): number {
     let contentStart = index + 1;
     let hasInterpolation = false;
     index++;
@@ -235,22 +223,22 @@ function tokenizeCode(source, stringEscapeMode = 'javascript') {
         }
         return index + 1;
       } else if (character === '$' && source[index + 1] === '{') {
-        if (!hasInterpolation) tokens.push({ type: 'template', value: null });
+        if (!hasInterpolation) tokens.push({ type: 'template', value: '' });
         hasInterpolation = true;
-        tokens.push({ type: 'template-boundary' });
+        tokens.push({ type: 'template-boundary', value: '' });
         index = readCode(index + 2, true);
-        tokens.push({ type: 'template-boundary' });
+        tokens.push({ type: 'template-boundary', value: '' });
         contentStart = index;
       } else {
         index++;
       }
     }
 
-    if (!hasInterpolation) tokens.push({ type: 'template', value: null });
+    if (!hasInterpolation) tokens.push({ type: 'template', value: '' });
     return index;
   }
 
-  function readCode(index, inTemplateExpression) {
+  function readCode(index: number, inTemplateExpression: boolean): number {
     let nestedBraceDepth = 0;
 
     while (index < source.length) {
@@ -279,7 +267,7 @@ function tokenizeCode(source, stringEscapeMode = 'javascript') {
       } else if (character === String.fromCharCode(96)) {
         index = readTemplate(index);
       } else if (character === '/' && canStartRegularExpression()) {
-        tokens.push({ type: 'regular-expression' });
+        tokens.push({ type: 'regular-expression', value: '' });
         index = skipRegularExpression(index);
       } else if (isIdentifierStart(character)) {
         const start = index;
@@ -301,7 +289,7 @@ function tokenizeCode(source, stringEscapeMode = 'javascript') {
   return tokens;
 }
 
-function extractServiceStrings(source, translateServiceName, stringEscapeMode = 'javascript') {
+function extractServiceStrings(source: string, translateServiceName: string, stringEscapeMode = 'javascript'): string[] {
   const serviceName = translateServiceName.trim();
   const validServicePath = /^[A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*$/;
   if (!validServicePath.test(serviceName)) return [];
@@ -309,7 +297,7 @@ function extractServiceStrings(source, translateServiceName, stringEscapeMode = 
   const servicePath = serviceName.split(/\s*\.\s*/);
   const methods = ['instant', 'get', 'stream', 'getStreamOnTranslationChange'];
   const tokens = tokenizeCode(source, stringEscapeMode);
-  const foundStrings = [];
+  const foundStrings: string[] = [];
 
   for (let index = 0; index < tokens.length; index++) {
     let cursor = index;
@@ -388,7 +376,7 @@ function extractServiceStrings(source, translateServiceName, stringEscapeMode = 
       for (let argumentIndex = argumentStart; argumentIndex < tokens.length; argumentIndex++) {
         const token = tokens[argumentIndex];
 
-        const isPunctuator = value => token.type === 'punctuator' && token.value === value;
+        const isPunctuator = (value: string) => token.type === 'punctuator' && token.value === value;
         if (isPunctuator('[')) arrayDepth++;
         if (isPunctuator(']')) {
           arrayDepth--;
@@ -416,9 +404,9 @@ function extractServiceStrings(source, translateServiceName, stringEscapeMode = 
   return foundStrings;
 }
 
-function extractInlineAngularTemplates(source) {
+function extractInlineAngularTemplates(source: string): string[] {
   const tokens = tokenizeCode(source);
-  const templates = [];
+  const templates: string[] = [];
 
   for (let index = 0; index < tokens.length; index++) {
     if (
@@ -436,48 +424,10 @@ function extractInlineAngularTemplates(source) {
   return templates;
 }
 
-function extractAngularTemplateText(source) {
-  const uncommentedSource = source.replace(/<!--[\s\S]*?-->/g, '');
-  const text = [];
-  let inTag = false;
-  let tagQuote = null;
-
-  for (let index = 0; index < uncommentedSource.length; index++) {
-    const character = uncommentedSource[index];
-
-    if (inTag) {
-      if (tagQuote) {
-        if (character === '\\') {
-          index++;
-        } else if (character === tagQuote) {
-          tagQuote = null;
-        }
-      } else if (character === "'" || character === '"') {
-        tagQuote = character;
-      } else if (character === '>') {
-        inTag = false;
-        text.push(' ');
-      }
-      continue;
-    }
-
-    if (character === '<' && /^\/?[A-Za-z!?]/.test(uncommentedSource.slice(index + 1))) {
-      inTag = true;
-      text.push(' ');
-    } else {
-      text.push(character);
-    }
-  }
-
-  return text.join('');
-}
-
-function extractAngularControlFlowSources(source) {
-  const expressions = [];
+function extractAngularControlFlowSources(source: string): string[] {
+  const expressions: string[] = [];
   const controlFlowRegex = /@(?:(?:if|for|switch|case)|else\s+if)\s*\(/g;
-  let matched;
-
-  while ((matched = controlFlowRegex.exec(source)) !== null) {
+  while (controlFlowRegex.exec(source) !== null) {
     const expressionStart = controlFlowRegex.lastIndex;
     let expressionEnd = expressionStart;
     let parenthesisDepth = 1;
@@ -521,12 +471,10 @@ function extractAngularControlFlowSources(source) {
   return expressions;
 }
 
-function extractAngularLetSources(source) {
-  const expressions = [];
+function extractAngularLetSources(source: string): string[] {
+  const expressions: string[] = [];
   const letRegex = /@let\s+[\w$]+\s*=\s*/g;
-  let matched;
-
-  while ((matched = letRegex.exec(source)) !== null) {
+  while (letRegex.exec(source) !== null) {
     const expressionStart = letRegex.lastIndex;
     let expressionEnd = expressionStart;
     let nestingDepth = 0;
@@ -577,10 +525,10 @@ function extractAngularLetSources(source) {
   return expressions;
 }
 
-function extractInterpolations(source) {
-  const expressions = [];
+function extractInterpolations(source: string): string[] {
+  const expressions: string[] = [];
   const interpolationRegex = /{{([\s\S]*?)}}/g;
-  let matched;
+  let matched: RegExpExecArray | null;
 
   while ((matched = interpolationRegex.exec(source)) !== null) {
     expressions.push(matched[1]);
@@ -589,7 +537,7 @@ function extractInterpolations(source) {
   return expressions;
 }
 
-function extractExpressionsFromText(source) {
+function extractExpressionsFromText(source: string): string[] {
   const interpolationRegex = /{{([\s\S]*?)}}/g;
   const plainText = source.replace(interpolationRegex, ' ');
   return [
@@ -599,8 +547,8 @@ function extractExpressionsFromText(source) {
   ];
 }
 
-function findHtmlTagEnd(source, start) {
-  let quote = null;
+function findHtmlTagEnd(source: string, start: number): number {
+  let quote: string | null = null;
 
   for (let index = start; index < source.length; index++) {
     const character = source[index];
@@ -621,8 +569,8 @@ function findHtmlTagEnd(source, start) {
   return source.length - 1;
 }
 
-function extractExpressionsFromTag(tag) {
-  const expressions = [];
+function extractExpressionsFromTag(tag: string): string[] {
+  const expressions: string[] = [];
   let index = 1;
 
   if (tag[index] === '/') return expressions;
@@ -672,10 +620,11 @@ function extractExpressionsFromTag(tag) {
   return expressions;
 }
 
-function decodeHtmlEntities(source) {
-  return source.replace(/&(#(?:[xX][\da-fA-F]+|\d+)|[A-Za-z][A-Za-z0-9]+);/g, (entity, reference) => {
+function decodeHtmlEntities(source: string): string {
+  const entityTable: Record<string, string> = namedEntities;
+  return source.replace(/&(#(?:[xX][\da-fA-F]+|\d+)|[A-Za-z][A-Za-z0-9]+);/g, (entity, reference: string) => {
     if (reference[0] !== '#') return Object.prototype.hasOwnProperty.call(namedEntities, reference)
-      ? namedEntities[reference]
+      ? entityTable[reference]!
       : entity;
 
     const isHexadecimal = reference[1] === 'x' || reference[1] === 'X';
@@ -685,12 +634,12 @@ function decodeHtmlEntities(source) {
   });
 }
 
-function extractAngularExpressionSources(source) {
-  const expressions = [];
+function extractAngularExpressionSources(source: string): string[] {
+  const expressions: string[] = [];
   let index = 0;
   let textStart = 0;
 
-  function findControlFlowExpressionEnd(expressionStart) {
+  function findControlFlowExpressionEnd(expressionStart: number): number {
     let expressionEnd = expressionStart;
     let parenthesisDepth = 1;
 
@@ -728,7 +677,7 @@ function extractAngularExpressionSources(source) {
     return parenthesisDepth === 0 ? expressionEnd - 1 : -1;
   }
 
-  function findLetExpressionEnd(expressionStart) {
+  function findLetExpressionEnd(expressionStart: number): number {
     let expressionEnd = expressionStart;
     let nestingDepth = 0;
 
@@ -837,9 +786,9 @@ function extractAngularExpressionSources(source) {
   return expressions.map(expression => decodeHtmlEntities(expression.replace(/\r\n?/g, '\n')));
 }
 
-function parseFile(fileName, translateServiceName = 'translateService') {
+export function parseFile(fileName: string, translateServiceName = 'translateService'): string[] {
   const file = readFileSync(fileName, { encoding: 'utf8' });
-  const foundStrings = [];
+  const foundStrings: string[] = [];
 
   const isHtmlFile = /\.html?$/i.test(fileName);
   const inlineTemplateExpressions = isHtmlFile
@@ -880,40 +829,4 @@ function parseFile(fileName, translateServiceName = 'translateService') {
 
   return foundStrings;
 }
-function parseTranslation(fileName) {
-  const file = readFileSync(fileName, { encoding: 'utf8' });
-
-  return flattenObject(JSON.parse(file));
-}
-
-function flattenObject(obj, parent, res = {}) {
-  for (let key in obj) {
-    let propName = parent ? parent + '.' + key : key;
-    if (typeof obj[key] == 'object') {
-      flattenObject(obj[key], propName, res);
-    } else {
-      res[propName] = obj[key];
-    }
-  }
-  return res;
-}
-
-function writeJsonOrStdout(jsonpath, data) {
-  console.log('');
-  if (jsonpath) {
-    let outputPath = jsonpath;
-    if (!jsonpath.endsWith('.json')) {
-      console.log("Appending .json to output file name.");
-      outputPath = outputPath.concat('.json');
-    }
-
-    writeFile(outputPath, JSON.stringify(data, null, "\t"), e => {
-      console.log(`Results were written to "${outputPath}" file.`);
-    });
-  } else {
-    console.log(data);
-  }
-}
-
-export { getTranslationFiles, getProjectFiles, parseFile, parseTranslation, writeJsonOrStdout };
 

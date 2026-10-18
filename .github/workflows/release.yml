@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]*.[0-9]*.[0-9]*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag (for example, v2.0.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'FranciscoKnebel/ngx-translate-check'
+    name: Publish to npm and GitHub Releases
+    runs-on: ubuntu-26.04
+    environment: npm
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify version and released commit
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Release tags must use vMAJOR.MINOR.PATCH"
+            exit 1
+          fi
+          git fetch origin master --quiet
+          git merge-base --is-ancestor HEAD origin/master || {
+            echo "::error::The release tag must refer to a commit already on master"
+            exit 1
+          }
+          PACKAGE_VERSION="$(node -p 'require("./package.json").version')"
+          if [[ "$RELEASE_TAG" != "v$PACKAGE_VERSION" ]]; then
+            echo "::error::Tag $RELEASE_TAG does not match package.json ($PACKAGE_VERSION)"
+            exit 1
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 26
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Use current npm for trusted publishing
+        run: npm install --global npm@12.2.0
+
+      - name: Install and verify
+        run: |
+          npm ci --no-audit --no-fund
+          npm run lint
+          npm run typecheck
+          npm test
+          npm pack --dry-run
+
+      - name: Publish package (npm trusted publishing / OIDC)
+        run: npm publish --access public
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: gh release create "$RELEASE_TAG" --verify-tag --generate-notes
