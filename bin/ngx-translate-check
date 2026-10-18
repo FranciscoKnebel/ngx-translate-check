@@ -25,6 +25,8 @@ let Pe;_(Ce),Ce.statSync,Ce.stat,Ce.Settings;var Oe="function"==typeof queueMicr
 
 
 
+
+
 // Updated Codex review fixes, kept in sync with src/utils/files.js.
 const codexNamedHtmlEntities = {
   "AElig": "Æ",
@@ -2181,7 +2183,7 @@ An = function tokenizeCode(source, stringEscapeMode = 'javascript') {
   }
 
   function decodeStringValue(value, isTemplateLiteral = false, isAngularExpression = false) {
-    if (isTemplateLiteral) value = value.replace(/\r\n?/g, '\n');
+    if (isTemplateLiteral || isAngularExpression) value = value.replace(/\r\n?/g, '\n');
     let decoded = '';
 
     for (let index = 0; index < value.length; index++) {
