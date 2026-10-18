@@ -25,6 +25,7 @@ const htmlFile = path.join(testDirectory, 'template.html');
 const fixture = [
   "this.translateService.instant('ERROR_UNKNOWN');",
   "this.translateService.instant('errors/http:404');",
+  "this.translateService.get(['ARRAY', ']', 'B', '[', 'C', '{', 'D', '(', 'E']);",
   "this.translateService.instant('QUOTE\\'KEY');",
   "this.translateService.instant('UNICODE\\u002fKEY');",
   "this.translateService.get(['ARRAY\\x2fESCAPE']);",
@@ -71,7 +72,7 @@ try {
   );
   assert.deepStrictEqual(
     parseFile(testFile).sort(),
-    ['ERROR_UNKNOWN', 'errors/http:404', "QUOTE'KEY", 'UNICODE/KEY', 'ARRAY/ESCAPE', 'OCTALaB', 'BACKTRACK?7KEY', 'NULL\x008ARRAY', 'TEMPLATE/KEY', 'CRLFKEY', 'TEMPLATE\nKEY', 'DEFAULT.TEMPLATE', 'DEFAULT.ARRAY.ONE', 'DEFAULT.ARRAY.TWO', 'errors/http:405'].sort()
+    ['ERROR_UNKNOWN', 'errors/http:404', 'ARRAY', ']', 'B', '[', 'C', '{', 'D', '(', 'E', "QUOTE'KEY", 'UNICODE/KEY', 'ARRAY/ESCAPE', 'OCTALaB', 'BACKTRACK?7KEY', 'NULL\x008ARRAY', 'TEMPLATE/KEY', 'CRLFKEY', 'TEMPLATE\nKEY', 'DEFAULT.TEMPLATE', 'DEFAULT.ARRAY.ONE', 'DEFAULT.ARRAY.TWO', 'errors/http:405'].sort()
   );
 
   fs.writeFileSync(htmlFile, "<!-- this.translateService.get('COMMENT.HTML');\n 'COMMENT.PIPE'\n | translate -->");
@@ -105,6 +106,18 @@ try {
   fs.writeFileSync(htmlFile, "<div>{{ 'A&amp;B' | translate }}</div>");
   assert.deepStrictEqual(parseFile(htmlFile), ['A&B']);
 
+  fs.writeFileSync(htmlFile, "<div>{{ 'A&ouml;B' | translate }}</div>");
+  assert.deepStrictEqual(parseFile(htmlFile), ['AöB']);
+
+  fs.writeFileSync(htmlFile, "<div>{{ 'ANGULAR\\x2fPIPE' | translate }}</div>");
+  assert.deepStrictEqual(parseFile(htmlFile), ['ANGULARx2fPIPE']);
+
+  fs.writeFileSync(htmlFile, "<div>{{ 'ANGULAR\\bPIPE' | translate }}</div>");
+  assert.deepStrictEqual(parseFile(htmlFile), ['ANGULARbPIPE']);
+
+  fs.writeFileSync(htmlFile, "<div>{{ translateService.instant('ANGULAR\\x2fSERVICE') }}</div>");
+  assert.deepStrictEqual(parseFile(htmlFile), ['ANGULARx2fSERVICE']);
+
   fs.writeFileSync(htmlFile, "<div>{{ 'C&#x2f;D' | translate }}</div>");
   assert.deepStrictEqual(parseFile(htmlFile), ['C/D']);
 
@@ -116,3 +129,4 @@ try {
   fs.unlinkSync(htmlFile);
   fs.rmdirSync(testDirectory);
 }
+
