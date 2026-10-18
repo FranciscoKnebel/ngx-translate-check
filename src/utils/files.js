@@ -31,7 +31,7 @@ function tokenizeCode(source, stringEscapeMode = 'javascript') {
   }
 
   function decodeStringValue(value, isTemplateLiteral = false, isAngularExpression = false) {
-    if (isTemplateLiteral || isAngularExpression) value = value.replace(/\r\n?/g, '\n');
+    if (isTemplateLiteral) value = value.replace(/\r\n?/g, '\n');
     let decoded = '';
 
     for (let index = 0; index < value.length; index++) {
@@ -354,13 +354,15 @@ function extractServiceStrings(source, translateServiceName, stringEscapeMode = 
     if (!method || method.type !== 'identifier' || !methods.includes(method.value)) continue;
 
     let callParenthesisIndex = methodIndex + 1;
-    if (tokens[callParenthesisIndex] && tokens[callParenthesisIndex].value === '<') {
+    if (tokens[callParenthesisIndex] && tokens[callParenthesisIndex].type === 'punctuator' &&
+      tokens[callParenthesisIndex].value === '<') {
       let typeArgumentDepth = 0;
       let typeArgumentsClosed = false;
 
       for (let typeIndex = callParenthesisIndex; typeIndex < tokens.length; typeIndex++) {
-        if (tokens[typeIndex].value === '<') typeArgumentDepth++;
-        if (tokens[typeIndex].value === '>') {
+        const token = tokens[typeIndex];
+        if (token.type === 'punctuator' && token.value === '<') typeArgumentDepth++;
+        if (token.type === 'punctuator' && token.value === '>') {
           typeArgumentDepth--;
           if (typeArgumentDepth === 0) {
             callParenthesisIndex = typeIndex + 1;
@@ -713,7 +715,7 @@ function extractAngularExpressionSources(source) {
   }
 
   expressions.push(...extractExpressionsFromText(source.slice(textStart)));
-  return expressions.map(decodeHtmlEntities);
+  return expressions.map(expression => decodeHtmlEntities(expression.replace(/\r\n?/g, '\n')));
 }
 
 function parseFile(fileName, translateServiceName = 'translateService') {
