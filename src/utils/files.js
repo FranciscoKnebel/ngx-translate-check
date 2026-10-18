@@ -31,7 +31,7 @@ function tokenizeCode(source, stringEscapeMode = 'javascript') {
   }
 
   function decodeStringValue(value, isTemplateLiteral = false, isAngularExpression = false) {
-    if (isTemplateLiteral) value = value.replace(/\r\n?/g, '\n');
+    if (isTemplateLiteral || isAngularExpression) value = value.replace(/\r\n?/g, '\n');
     let decoded = '';
 
     for (let index = 0; index < value.length; index++) {
