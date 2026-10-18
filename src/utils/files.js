@@ -678,9 +678,7 @@ function decodeHtmlEntities(source) {
 
     const isHexadecimal = reference[1] === 'x' || reference[1] === 'X';
     const codePoint = parseInt(reference.slice(isHexadecimal ? 2 : 1), isHexadecimal ? 16 : 10);
-    if (codePoint === 0 || codePoint > 0x10ffff || (codePoint >= 0xd800 && codePoint <= 0xdfff)) {
-      return '\ufffd';
-    }
+    if (codePoint > 0x10ffff) return entity;
     return String.fromCodePoint(codePoint);
   });
 }
