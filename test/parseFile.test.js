@@ -124,6 +124,9 @@ try {
   fs.writeFileSync(htmlFile, "<div>{{ translateService.instant('ANGULAR\\x2fSERVICE') }}</div>");
   assert.deepStrictEqual(parseFile(htmlFile), ['ANGULARx2fSERVICE']);
 
+  fs.writeFileSync(htmlFile, "<div>{{ 'A&#0;B' | translate }}</div><div>{{ 'C&#xD800;D' | translate }}</div>");
+  assert.deepStrictEqual(parseFile(htmlFile), ['A\x00B', 'C\uD800D']);
+
   fs.writeFileSync(htmlFile, "<div>{{ 'C&#x2f;D' | translate }}</div>");
   assert.deepStrictEqual(parseFile(htmlFile), ['C/D']);
 
