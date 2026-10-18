@@ -103,6 +103,12 @@ try {
   fs.writeFileSync(htmlFile, "<div>{{ 'errors/http:404' | translate }}</div>");
   assert.deepStrictEqual(parseFile(htmlFile), ['errors/http:404']);
 
+  fs.writeFileSync(htmlFile, "<div>{{ 'A<B' | translate }}</div>");
+  assert.deepStrictEqual(parseFile(htmlFile), ['A<B']);
+
+  fs.writeFileSync(htmlFile, "<div>{{ translateService.instant('C<D') }}</div>");
+  assert.deepStrictEqual(parseFile(htmlFile), ['C<D']);
+
   fs.writeFileSync(htmlFile, "<div>{{ 'UNICODE\\u002fPIPE' | translate }}</div>");
   assert.deepStrictEqual(parseFile(htmlFile), ['UNICODE/PIPE']);
 
