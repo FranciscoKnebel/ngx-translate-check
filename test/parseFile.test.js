@@ -112,6 +112,9 @@ try {
   fs.writeFileSync(htmlFile, "<div>{{ 'A&NewLine;B' | translate }}</div>");
   assert.deepStrictEqual(parseFile(htmlFile), ['A\nB']);
 
+  fs.writeFileSync(htmlFile, "<div>{{ 'A\r\nB' | translate }}</div>");
+  assert.deepStrictEqual(parseFile(htmlFile), ['A\nB']);
+
   fs.writeFileSync(htmlFile, "<div>{{ 'ANGULAR\\x2fPIPE' | translate }}</div>");
   assert.deepStrictEqual(parseFile(htmlFile), ['ANGULARx2fPIPE']);
 
