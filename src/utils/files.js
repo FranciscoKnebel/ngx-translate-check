@@ -153,8 +153,8 @@ function tokenizeCode(source, stringEscapeMode = 'javascript') {
       let parenthesisDepth = 0;
 
       for (let index = tokens.length - 1; index >= 0; index--) {
-        if (tokens[index].value === ')') parenthesisDepth++;
-        if (tokens[index].value === '(') parenthesisDepth--;
+        if (tokens[index].type === 'punctuator' && tokens[index].value === ')') parenthesisDepth++;
+        if (tokens[index].type === 'punctuator' && tokens[index].value === '(') parenthesisDepth--;
 
         if (parenthesisDepth === 0) {
           const condition = tokens[index - 1];
