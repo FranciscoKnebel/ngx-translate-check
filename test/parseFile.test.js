@@ -47,6 +47,7 @@ const fixture = [
   "this.i18n?.instant('OPTIONAL.KEY');",
   "this.i18n!.get('ASSERTED.KEY');",
   "if (condition) /i18n.get('REGEX.CONTENT')/.test(source);",
+  "if ('\\x29') /i18n.get('REGEX.STRING_PARENTHESIS')/.test(source);",
   "if (condition) { } else /i18n.get('REGEX.ELSE')/.test(source);",
   "do /i18n.get('REGEX.DO')/.test(source); while (condition);",
   'const component = { template: `<span>{{ this.i18n.instant("INLINE.KEY") }}</span>` };',
