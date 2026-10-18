@@ -691,7 +691,18 @@ function extractAngularExpressionSources(source) {
   let textStart = 0;
 
   while (index < source.length) {
-    if (source.slice(index, index + 4) === '<!--') {
+    if (source.slice(index, index + 2) === '{{') {
+      expressions.push(...extractExpressionsFromText(source.slice(textStart, index)));
+      const interpolationEnd = source.indexOf('}}', index + 2);
+      if (interpolationEnd === -1) {
+        index = source.length;
+        textStart = index;
+      } else {
+        expressions.push(source.slice(index + 2, interpolationEnd));
+        index = interpolationEnd + 2;
+        textStart = index;
+      }
+    } else if (source.slice(index, index + 4) === '<!--') {
       expressions.push(...extractExpressionsFromText(source.slice(textStart, index)));
       const commentEnd = source.indexOf('-->', index + 4);
       index = commentEnd === -1 ? source.length : commentEnd + 3;
