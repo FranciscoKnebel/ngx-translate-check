@@ -84,6 +84,10 @@ try {
   assert.deepStrictEqual(parseFile(htmlFile), []);
   fs.writeFileSync(htmlFile, "@let label = 'LABEL.PIPE' | translate; @let other = translateService.instant('LABEL.SERVICE');");
   assert.deepStrictEqual(parseFile(htmlFile).sort(), ['LABEL.PIPE', 'LABEL.SERVICE'].sort());
+  fs.writeFileSync(htmlFile, "@if ('A<B' | translate) { }");
+  assert.deepStrictEqual(parseFile(htmlFile), ['A<B']);
+  fs.writeFileSync(htmlFile, "@let label = 'C<D' | translate;");
+  assert.deepStrictEqual(parseFile(htmlFile), ['C<D']);
   fs.writeFileSync(htmlFile, '<span>{{ "example \'FAKE.KEY\' | translate" }}</span>');
   assert.deepStrictEqual(parseFile(htmlFile), []);
   fs.writeFileSync(htmlFile, "<button [title]=\"translateService.instant('BUTTON.TITLE')\" (click)=\"translateService.get('BUTTON.CLICK')\"></button><span>{{ translateService.instant('INTERPOLATION.TITLE') }}</span>");
