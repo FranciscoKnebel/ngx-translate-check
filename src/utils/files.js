@@ -1,5 +1,7 @@
 import glob from 'fast-glob';
 import { readFileSync, writeFile } from 'fs';
+// Generated from Angular's WHATWG named-entity table, including its ngsp extension.
+import namedEntities from './htmlEntities.json';
 
 function readGlob(inputPath, types = ['ts', 'html']) {
   const inputGlob = `${inputPath}/**/*.(${types.join('|')})`
@@ -17,7 +19,7 @@ function getProjectFiles(projectPath, fileTypes) {
   return readGlob(projectPath, fileTypes);
 }
 
-function tokenizeCode(source) {
+function tokenizeCode(source, stringEscapeMode = 'javascript') {
   const tokens = [];
 
   function isIdentifierStart(character) {
@@ -28,7 +30,7 @@ function tokenizeCode(source) {
     return /[\w$]/.test(character);
   }
 
-  function decodeStringValue(value, isTemplateLiteral = false) {
+  function decodeStringValue(value, isTemplateLiteral = false, isAngularExpression = false) {
     if (isTemplateLiteral) value = value.replace(/\r\n?/g, '\n');
     let decoded = '';
 
@@ -40,6 +42,28 @@ function tokenizeCode(source) {
       }
 
       const escaped = value[++index];
+      if (isAngularExpression) {
+        if (escaped === 'u') {
+          const hex = value.slice(index + 1, index + 5);
+          if (/^[\da-fA-F]{4}$/.test(hex)) {
+            decoded += String.fromCharCode(parseInt(hex, 16));
+            index += 4;
+          } else {
+            decoded += escaped;
+          }
+        } else {
+          switch (escaped) {
+            case 'n': decoded += '\n'; break;
+            case 'f': decoded += '\f'; break;
+            case 'r': decoded += '\r'; break;
+            case 't': decoded += '\t'; break;
+            case 'v': decoded += '\v'; break;
+            default: decoded += escaped;
+          }
+        }
+        continue;
+      }
+
       switch (escaped) {
         case 'b': decoded += '\b'; break;
         case 'f': decoded += '\f'; break;
@@ -183,7 +207,7 @@ function tokenizeCode(source) {
       if (character === '\\') {
         index += source[index + 1] === '\r' && source[index + 2] === '\n' ? 3 : 2;
       } else if (character === quote) {
-        tokens.push({ type: 'string', value: decodeStringValue(source.slice(start, index)) });
+        tokens.push({ type: 'string', value: decodeStringValue(source.slice(start, index), false, stringEscapeMode === 'angular') });
         return index + 1;
       } else if (character === '\n' || character === '\r') {
         return index;
@@ -207,7 +231,7 @@ function tokenizeCode(source) {
         index += 2;
       } else if (character === String.fromCharCode(96)) {
         if (!hasInterpolation) {
-          tokens.push({ type: 'string', value: decodeStringValue(source.slice(contentStart, index), true) });
+          tokens.push({ type: 'string', value: decodeStringValue(source.slice(contentStart, index), true, stringEscapeMode === 'angular') });
         }
         return index + 1;
       } else if (character === '$' && source[index + 1] === '{') {
@@ -277,14 +301,14 @@ function tokenizeCode(source) {
   return tokens;
 }
 
-function extractServiceStrings(source, translateServiceName) {
+function extractServiceStrings(source, translateServiceName, stringEscapeMode = 'javascript') {
   const serviceName = translateServiceName.trim();
   const validServicePath = /^[A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*$/;
   if (!validServicePath.test(serviceName)) return [];
 
   const servicePath = serviceName.split(/\s*\.\s*/);
   const methods = ['instant', 'get', 'stream', 'getStreamOnTranslationChange'];
-  const tokens = tokenizeCode(source);
+  const tokens = tokenizeCode(source, stringEscapeMode);
   const foundStrings = [];
 
   for (let index = 0; index < tokens.length; index++) {
@@ -362,8 +386,9 @@ function extractServiceStrings(source, translateServiceName) {
       for (let argumentIndex = argumentStart; argumentIndex < tokens.length; argumentIndex++) {
         const token = tokens[argumentIndex];
 
-        if (token.value === '[') arrayDepth++;
-        if (token.value === ']') {
+        const isPunctuator = value => token.type === 'punctuator' && token.value === value;
+        if (isPunctuator('[')) arrayDepth++;
+        if (isPunctuator(']')) {
           arrayDepth--;
           if (arrayDepth === 0) break;
           continue;
@@ -371,14 +396,17 @@ function extractServiceStrings(source, translateServiceName) {
 
         if (arrayDepth === 1 && objectDepth === 0 && parenthesisDepth === 0 &&
           token.type === 'string' && token.value.length > 0 &&
-          (tokens[argumentIndex - 1].value === '[' || tokens[argumentIndex - 1].value === ',')) {
+          (tokens[argumentIndex - 1].type === 'punctuator' &&
+            (tokens[argumentIndex - 1].value === '[' || tokens[argumentIndex - 1].value === ','))) {
           foundStrings.push(token.value);
         }
 
-        if (token.value === '{') objectDepth++;
-        if (token.value === '}' && objectDepth > 0) objectDepth--;
-        if (token.value === '(') parenthesisDepth++;
-        if (token.value === ')' && parenthesisDepth > 0) parenthesisDepth--;
+        if (token.type === 'punctuator') {
+          if (token.value === '{') objectDepth++;
+          if (token.value === '}' && objectDepth > 0) objectDepth--;
+          if (token.value === '(') parenthesisDepth++;
+          if (token.value === ')' && parenthesisDepth > 0) parenthesisDepth--;
+        }
       }
     }
   }
@@ -643,33 +671,6 @@ function extractExpressionsFromTag(tag) {
 }
 
 function decodeHtmlEntities(source) {
-  const namedEntities = {
-    amp: '&',
-    lt: '<',
-    gt: '>',
-    quot: '"',
-    apos: "'",
-    nbsp: '\u00a0',
-    copy: '\u00a9',
-    reg: '\u00ae',
-    trade: '\u2122',
-    hellip: '\u2026',
-    ndash: '\u2013',
-    mdash: '\u2014',
-    lsquo: '\u2018',
-    rsquo: '\u2019',
-    ldquo: '\u201c',
-    rdquo: '\u201d',
-    eacute: '\u00e9',
-    Eacute: '\u00c9',
-    aacute: '\u00e1',
-    Aacute: '\u00c1',
-    ntilde: '\u00f1',
-    Ntilde: '\u00d1',
-    ccedil: '\u00e7',
-    Ccedil: '\u00c7'
-  };
-
   return source.replace(/&(#(?:[xX][\da-fA-F]+|\d+)|[A-Za-z][A-Za-z0-9]+);/g, (entity, reference) => {
     if (reference[0] !== '#') return Object.prototype.hasOwnProperty.call(namedEntities, reference)
       ? namedEntities[reference]
@@ -731,7 +732,7 @@ function parseFile(fileName, translateServiceName = 'translateService') {
 
   // Tokenize Angular expressions so pipe examples inside strings are ignored.
   angularExpressionSources.forEach(expression => {
-    const tokens = tokenizeCode(expression);
+    const tokens = tokenizeCode(expression, 'angular');
     for (let index = 0; index < tokens.length - 2; index++) {
       if (
         tokens[index].type === 'string' &&
@@ -746,8 +747,16 @@ function parseFile(fileName, translateServiceName = 'translateService') {
   });
 
   if (translateServiceName) {
-    const serviceCallSource = isHtmlFile ? angularExpressionSources.join('\n') : [file, ...angularExpressionSources].join('\n');
-    foundStrings.push(...extractServiceStrings(serviceCallSource, translateServiceName));
+    if (!isHtmlFile) {
+      foundStrings.push(...extractServiceStrings(file, translateServiceName));
+    }
+    if (isHtmlFile || angularExpressionSources.length > 0) {
+      foundStrings.push(...extractServiceStrings(
+        angularExpressionSources.join('\n'),
+        translateServiceName,
+        'angular'
+      ));
+    }
   }
 
   return foundStrings;
@@ -788,3 +797,4 @@ function writeJsonOrStdout(jsonpath, data) {
 }
 
 export { getTranslationFiles, getProjectFiles, parseFile, parseTranslation, writeJsonOrStdout };
+
