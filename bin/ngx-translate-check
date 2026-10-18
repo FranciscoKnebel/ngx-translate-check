@@ -31,6 +31,8 @@ let Pe;_(Ce),Ce.statSync,Ce.stat,Ce.Settings;var Oe="function"==typeof queueMicr
 
 
 
+
+
 // Updated Codex review fixes, kept in sync with src/utils/files.js.
 const codexNamedHtmlEntities = {
   "AElig": "Æ",
@@ -2172,7 +2174,7 @@ const codexDecodeHtmlEntities = function decodeHtmlEntities(source) {
     return String.fromCodePoint(codePoint);
   });
 };
-On = codexDecodeHtmlEntities;
+On = function(source) { return codexDecodeHtmlEntities(source.replace(/\r\n?/g, '\n')); };
 An = function tokenizeCode(source, stringEscapeMode = 'javascript') {
   const tokens = [];
 
@@ -2185,7 +2187,7 @@ An = function tokenizeCode(source, stringEscapeMode = 'javascript') {
   }
 
   function decodeStringValue(value, isTemplateLiteral = false, isAngularExpression = false) {
-    if (isTemplateLiteral || isAngularExpression) value = value.replace(/\r\n?/g, '\n');
+    if (isTemplateLiteral) value = value.replace(/\r\n?/g, '\n');
     let decoded = '';
 
     for (let index = 0; index < value.length; index++) {
@@ -2526,13 +2528,15 @@ const codexExtractServiceStrings = function extractServiceStrings(source, transl
     if (!method || method.type !== 'identifier' || !methods.includes(method.value)) continue;
 
     let callParenthesisIndex = methodIndex + 1;
-    if (tokens[callParenthesisIndex] && tokens[callParenthesisIndex].value === '<') {
+    if (tokens[callParenthesisIndex] && tokens[callParenthesisIndex].type === 'punctuator' &&
+      tokens[callParenthesisIndex].value === '<') {
       let typeArgumentDepth = 0;
       let typeArgumentsClosed = false;
 
       for (let typeIndex = callParenthesisIndex; typeIndex < tokens.length; typeIndex++) {
-        if (tokens[typeIndex].value === '<') typeArgumentDepth++;
-        if (tokens[typeIndex].value === '>') {
+        const token = tokens[typeIndex];
+        if (token.type === 'punctuator' && token.value === '<') typeArgumentDepth++;
+        if (token.type === 'punctuator' && token.value === '>') {
           typeArgumentDepth--;
           if (typeArgumentDepth === 0) {
             callParenthesisIndex = typeIndex + 1;
