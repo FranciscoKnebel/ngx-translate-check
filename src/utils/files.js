@@ -1,5 +1,7 @@
 import glob from 'fast-glob';
 import { readFileSync, writeFile } from 'fs';
+// Generated from Angular's WHATWG named-entity table, including its ngsp extension.
+import namedEntities from './htmlEntities.json';
 
 function readGlob(inputPath, types = ['ts', 'html']) {
   const inputGlob = `${inputPath}/**/*.(${types.join('|')})`
@@ -17,7 +19,7 @@ function getProjectFiles(projectPath, fileTypes) {
   return readGlob(projectPath, fileTypes);
 }
 
-function tokenizeCode(source) {
+function tokenizeCode(source, stringEscapeMode = 'javascript') {
   const tokens = [];
 
   function isIdentifierStart(character) {
@@ -26,6 +28,114 @@ function tokenizeCode(source) {
 
   function isIdentifierPart(character) {
     return /[\w$]/.test(character);
+  }
+
+  function decodeStringValue(value, isTemplateLiteral = false, isAngularExpression = false) {
+    if (isTemplateLiteral) value = value.replace(/\r\n?/g, '\n');
+    let decoded = '';
+
+    for (let index = 0; index < value.length; index++) {
+      const character = value[index];
+      if (character !== '\\' || index + 1 >= value.length) {
+        decoded += character;
+        continue;
+      }
+
+      const escaped = value[++index];
+      if (isAngularExpression) {
+        if (escaped === 'u') {
+          const hex = value.slice(index + 1, index + 5);
+          if (/^[\da-fA-F]{4}$/.test(hex)) {
+            decoded += String.fromCharCode(parseInt(hex, 16));
+            index += 4;
+          } else {
+            decoded += escaped;
+          }
+        } else {
+          switch (escaped) {
+            case 'n': decoded += '\n'; break;
+            case 'f': decoded += '\f'; break;
+            case 'r': decoded += '\r'; break;
+            case 't': decoded += '\t'; break;
+            case 'v': decoded += '\v'; break;
+            default: decoded += escaped;
+          }
+        }
+        continue;
+      }
+
+      switch (escaped) {
+        case 'b': decoded += '\b'; break;
+        case 'f': decoded += '\f'; break;
+        case 'n': decoded += '\n'; break;
+        case 'r': decoded += '\r'; break;
+        case 't': decoded += '\t'; break;
+        case 'v': decoded += '\v'; break;
+        case '\n': break;
+        case '\r':
+          if (value[index + 1] === '\n') index++;
+          break;
+        case '\u2028':
+        case '\u2029': break;
+        case 'x': {
+          const hex = value.slice(index + 1, index + 3);
+          if (/^[\da-fA-F]{2}$/.test(hex)) {
+            decoded += String.fromCharCode(parseInt(hex, 16));
+            index += 2;
+          } else {
+            decoded += escaped;
+          }
+          break;
+        }
+        case 'u': {
+          if (value[index + 1] === '{') {
+            const braceEnd = value.indexOf('}', index + 2);
+            const hex = braceEnd === -1 ? '' : value.slice(index + 2, braceEnd);
+            const codePoint = /^[\da-fA-F]{1,6}$/.test(hex) ? parseInt(hex, 16) : -1;
+            if (codePoint >= 0 && codePoint <= 0x10ffff) {
+              decoded += String.fromCodePoint(codePoint);
+              index = braceEnd;
+            } else {
+              decoded += escaped;
+            }
+          } else {
+            const hex = value.slice(index + 1, index + 5);
+            if (/^[\da-fA-F]{4}$/.test(hex)) {
+              decoded += String.fromCharCode(parseInt(hex, 16));
+              index += 4;
+            } else {
+              decoded += escaped;
+            }
+          }
+          break;
+        }
+        default: {
+          if (escaped >= '0' && escaped <= '7') {
+            // Legacy octal escape from non-strict JavaScript: \0 through \377,
+            // consuming the longest prefix of up to three octal digits that
+            // stays within a single character code.
+            let digits = escaped;
+            while (digits.length < 3 && /^[0-7]$/.test(value[index + 1] || '')) {
+              digits += value[++index];
+            }
+
+            let charCode = parseInt(digits, 8);
+            while (charCode > 255 && digits.length > 1) {
+              index--;
+              digits = digits.slice(0, -1);
+              charCode = parseInt(digits, 8);
+            }
+
+            decoded += String.fromCharCode(charCode);
+            break;
+          }
+
+          decoded += escaped;
+        }
+      }
+    }
+
+    return decoded;
   }
 
   function canStartRegularExpression() {
@@ -43,8 +153,8 @@ function tokenizeCode(source) {
       let parenthesisDepth = 0;
 
       for (let index = tokens.length - 1; index >= 0; index--) {
-        if (tokens[index].value === ')') parenthesisDepth++;
-        if (tokens[index].value === '(') parenthesisDepth--;
+        if (tokens[index].type === 'punctuator' && tokens[index].value === ')') parenthesisDepth++;
+        if (tokens[index].type === 'punctuator' && tokens[index].value === '(') parenthesisDepth--;
 
         if (parenthesisDepth === 0) {
           const condition = tokens[index - 1];
@@ -95,11 +205,11 @@ function tokenizeCode(source) {
       const character = source[index];
 
       if (character === '\\') {
-        index += 2;
+        index += source[index + 1] === '\r' && source[index + 2] === '\n' ? 3 : 2;
       } else if (character === quote) {
-        tokens.push({ type: 'string', value: source.slice(start, index) });
+        tokens.push({ type: 'string', value: decodeStringValue(source.slice(start, index), false, stringEscapeMode === 'angular') });
         return index + 1;
-      } else if (character === '\n' || character === '\r') {
+      } else if ((character === '\n' || character === '\r') && stringEscapeMode !== 'angular') {
         return index;
       } else {
         index++;
@@ -121,7 +231,7 @@ function tokenizeCode(source) {
         index += 2;
       } else if (character === String.fromCharCode(96)) {
         if (!hasInterpolation) {
-          tokens.push({ type: 'string', value: source.slice(contentStart, index) });
+          tokens.push({ type: 'string', value: decodeStringValue(source.slice(contentStart, index), true, stringEscapeMode === 'angular') });
         }
         return index + 1;
       } else if (character === '$' && source[index + 1] === '{') {
@@ -191,15 +301,14 @@ function tokenizeCode(source) {
   return tokens;
 }
 
-function extractServiceStrings(source, translateServiceName) {
+function extractServiceStrings(source, translateServiceName, stringEscapeMode = 'javascript') {
   const serviceName = translateServiceName.trim();
   const validServicePath = /^[A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*$/;
   if (!validServicePath.test(serviceName)) return [];
 
   const servicePath = serviceName.split(/\s*\.\s*/);
   const methods = ['instant', 'get', 'stream', 'getStreamOnTranslationChange'];
-  const keyPattern = /^[\w-]+(?:\.[\w-]+)*$/;
-  const tokens = tokenizeCode(source);
+  const tokens = tokenizeCode(source, stringEscapeMode);
   const foundStrings = [];
 
   for (let index = 0; index < tokens.length; index++) {
@@ -245,13 +354,15 @@ function extractServiceStrings(source, translateServiceName) {
     if (!method || method.type !== 'identifier' || !methods.includes(method.value)) continue;
 
     let callParenthesisIndex = methodIndex + 1;
-    if (tokens[callParenthesisIndex] && tokens[callParenthesisIndex].value === '<') {
+    if (tokens[callParenthesisIndex] && tokens[callParenthesisIndex].type === 'punctuator' &&
+      tokens[callParenthesisIndex].value === '<') {
       let typeArgumentDepth = 0;
       let typeArgumentsClosed = false;
 
       for (let typeIndex = callParenthesisIndex; typeIndex < tokens.length; typeIndex++) {
-        if (tokens[typeIndex].value === '<') typeArgumentDepth++;
-        if (tokens[typeIndex].value === '>') {
+        const token = tokens[typeIndex];
+        if (token.type === 'punctuator' && token.value === '<') typeArgumentDepth++;
+        if (token.type === 'punctuator' && token.value === '>') {
           typeArgumentDepth--;
           if (typeArgumentDepth === 0) {
             callParenthesisIndex = typeIndex + 1;
@@ -267,7 +378,7 @@ function extractServiceStrings(source, translateServiceName) {
     if (!tokens[callParenthesisIndex] || tokens[callParenthesisIndex].value !== '(') continue;
     const argumentStart = callParenthesisIndex + 1;
     const argument = tokens[argumentStart];
-    if (argument && argument.type === 'string' && keyPattern.test(argument.value)) {
+    if (argument && argument.type === 'string' && argument.value.length > 0) {
       foundStrings.push(argument.value);
     } else if (argument && argument.value === '[') {
       let arrayDepth = 0;
@@ -277,23 +388,27 @@ function extractServiceStrings(source, translateServiceName) {
       for (let argumentIndex = argumentStart; argumentIndex < tokens.length; argumentIndex++) {
         const token = tokens[argumentIndex];
 
-        if (token.value === '[') arrayDepth++;
-        if (token.value === ']') {
+        const isPunctuator = value => token.type === 'punctuator' && token.value === value;
+        if (isPunctuator('[')) arrayDepth++;
+        if (isPunctuator(']')) {
           arrayDepth--;
           if (arrayDepth === 0) break;
           continue;
         }
 
         if (arrayDepth === 1 && objectDepth === 0 && parenthesisDepth === 0 &&
-          token.type === 'string' && keyPattern.test(token.value) &&
-          (tokens[argumentIndex - 1].value === '[' || tokens[argumentIndex - 1].value === ',')) {
+          token.type === 'string' && token.value.length > 0 &&
+          (tokens[argumentIndex - 1].type === 'punctuator' &&
+            (tokens[argumentIndex - 1].value === '[' || tokens[argumentIndex - 1].value === ','))) {
           foundStrings.push(token.value);
         }
 
-        if (token.value === '{') objectDepth++;
-        if (token.value === '}' && objectDepth > 0) objectDepth--;
-        if (token.value === '(') parenthesisDepth++;
-        if (token.value === ')' && parenthesisDepth > 0) parenthesisDepth--;
+        if (token.type === 'punctuator') {
+          if (token.value === '{') objectDepth++;
+          if (token.value === '}' && objectDepth > 0) objectDepth--;
+          if (token.value === '(') parenthesisDepth++;
+          if (token.value === ')' && parenthesisDepth > 0) parenthesisDepth--;
+        }
       }
     }
   }
@@ -359,7 +474,7 @@ function extractAngularTemplateText(source) {
 
 function extractAngularControlFlowSources(source) {
   const expressions = [];
-  const controlFlowRegex = /@(?:if|for|switch|case)\s*\(/g;
+  const controlFlowRegex = /@(?:(?:if|for|switch|case)|else\s+if)\s*\(/g;
   let matched;
 
   while ((matched = controlFlowRegex.exec(source)) !== null) {
@@ -557,37 +672,169 @@ function extractExpressionsFromTag(tag) {
   return expressions;
 }
 
+function decodeHtmlEntities(source) {
+  return source.replace(/&(#(?:[xX][\da-fA-F]+|\d+)|[A-Za-z][A-Za-z0-9]+);/g, (entity, reference) => {
+    if (reference[0] !== '#') return Object.prototype.hasOwnProperty.call(namedEntities, reference)
+      ? namedEntities[reference]
+      : entity;
+
+    const isHexadecimal = reference[1] === 'x' || reference[1] === 'X';
+    const codePoint = parseInt(reference.slice(isHexadecimal ? 2 : 1), isHexadecimal ? 16 : 10);
+    if (codePoint > 0x10ffff) return entity;
+    return String.fromCodePoint(codePoint);
+  });
+}
+
 function extractAngularExpressionSources(source) {
   const expressions = [];
   let index = 0;
   let textStart = 0;
 
+  function findControlFlowExpressionEnd(expressionStart) {
+    let expressionEnd = expressionStart;
+    let parenthesisDepth = 1;
+
+    while (expressionEnd < source.length && parenthesisDepth > 0) {
+      const character = source[expressionEnd];
+      const nextCharacter = source[expressionEnd + 1];
+
+      if (character === "'" || character === '"' || character === String.fromCharCode(96)) {
+        const quote = character;
+        expressionEnd++;
+        while (expressionEnd < source.length) {
+          if (source[expressionEnd] === '\\') {
+            expressionEnd += 2;
+          } else if (source[expressionEnd] === quote) {
+            expressionEnd++;
+            break;
+          } else {
+            expressionEnd++;
+          }
+        }
+      } else if (character === '/' && nextCharacter === '/') {
+        expressionEnd += 2;
+        while (expressionEnd < source.length && source[expressionEnd] !== '\n' && source[expressionEnd] !== '\r') expressionEnd++;
+      } else if (character === '/' && nextCharacter === '*') {
+        expressionEnd += 2;
+        while (expressionEnd < source.length && !(source[expressionEnd] === '*' && source[expressionEnd + 1] === '/')) expressionEnd++;
+        expressionEnd = Math.min(expressionEnd + 2, source.length);
+      } else {
+        if (character === '(') parenthesisDepth++;
+        if (character === ')') parenthesisDepth--;
+        expressionEnd++;
+      }
+    }
+
+    return parenthesisDepth === 0 ? expressionEnd - 1 : -1;
+  }
+
+  function findLetExpressionEnd(expressionStart) {
+    let expressionEnd = expressionStart;
+    let nestingDepth = 0;
+
+    while (expressionEnd < source.length) {
+      const character = source[expressionEnd];
+      const nextCharacter = source[expressionEnd + 1];
+
+      if (character === "'" || character === '"' || character === String.fromCharCode(96)) {
+        const quote = character;
+        expressionEnd++;
+        while (expressionEnd < source.length) {
+          if (source[expressionEnd] === '\\') {
+            expressionEnd += 2;
+          } else if (source[expressionEnd] === quote) {
+            expressionEnd++;
+            break;
+          } else {
+            expressionEnd++;
+          }
+        }
+      } else if (character === '/' && nextCharacter === '/') {
+        expressionEnd += 2;
+        while (expressionEnd < source.length && source[expressionEnd] !== '\n' && source[expressionEnd] !== '\r') expressionEnd++;
+      } else if (character === '/' && nextCharacter === '*') {
+        expressionEnd += 2;
+        while (expressionEnd < source.length && !(source[expressionEnd] === '*' && source[expressionEnd + 1] === '/')) expressionEnd++;
+        expressionEnd = Math.min(expressionEnd + 2, source.length);
+      } else if (character === '(' || character === '[' || character === '{') {
+        nestingDepth++;
+        expressionEnd++;
+      } else if (character === ')' || character === ']' || character === '}') {
+        nestingDepth = Math.max(0, nestingDepth - 1);
+        expressionEnd++;
+      } else if (character === ';' && nestingDepth === 0) {
+        break;
+      } else {
+        expressionEnd++;
+      }
+    }
+
+    return expressionEnd;
+  }
+
   while (index < source.length) {
-    if (source.slice(index, index + 4) === '<!--') {
+    if (source.slice(index, index + 2) === '{{') {
+      expressions.push(...extractExpressionsFromText(source.slice(textStart, index)));
+      const interpolationEnd = source.indexOf('}}', index + 2);
+      if (interpolationEnd === -1) {
+        index = source.length;
+        textStart = index;
+      } else {
+        expressions.push(source.slice(index + 2, interpolationEnd));
+        index = interpolationEnd + 2;
+        textStart = index;
+      }
+    } else if (source.slice(index, index + 4) === '<!--') {
       expressions.push(...extractExpressionsFromText(source.slice(textStart, index)));
       const commentEnd = source.indexOf('-->', index + 4);
       index = commentEnd === -1 ? source.length : commentEnd + 3;
       textStart = index;
-    } else if (
-      source[index] === '<' &&
-      index + 1 < source.length &&
-      (/[A-Za-z/!]/.test(source[index + 1]))
-    ) {
-      expressions.push(...extractExpressionsFromText(source.slice(textStart, index)));
-      const tagEnd = findHtmlTagEnd(source, index);
-      const tag = source.slice(index, tagEnd + 1);
-      if (source[index + 1] !== '!' && source[index + 1] !== '/') {
-        expressions.push(...extractExpressionsFromTag(tag));
-      }
-      index = tagEnd + 1;
-      textStart = index;
     } else {
-      index++;
+      const remaining = source.slice(index);
+      const controlFlowMatch = /^@(?:(?:if|for|switch|case)|else\s+if)\s*\(/.exec(remaining);
+      const letMatch = /^@let\s+[\w$]+\s*=\s*/.exec(remaining);
+
+      if (controlFlowMatch) {
+        expressions.push(...extractExpressionsFromText(source.slice(textStart, index)));
+        const expressionStart = index + controlFlowMatch[0].length;
+        const expressionEnd = findControlFlowExpressionEnd(expressionStart);
+        if (expressionEnd === -1) {
+          index++;
+        } else {
+          expressions.push(source.slice(expressionStart, expressionEnd));
+          index = expressionEnd + 1;
+          textStart = index;
+        }
+      } else if (letMatch) {
+        expressions.push(...extractExpressionsFromText(source.slice(textStart, index)));
+        const expressionStart = index + letMatch[0].length;
+        const expressionEnd = findLetExpressionEnd(expressionStart);
+        if (expressionEnd > expressionStart) {
+          expressions.push(source.slice(expressionStart, expressionEnd));
+        }
+        index = expressionEnd + (source[expressionEnd] === ';' ? 1 : 0);
+        textStart = index;
+      } else if (
+        source[index] === '<' &&
+        index + 1 < source.length &&
+        (/[A-Za-z/!]/.test(source[index + 1]))
+      ) {
+        expressions.push(...extractExpressionsFromText(source.slice(textStart, index)));
+        const tagEnd = findHtmlTagEnd(source, index);
+        const tag = source.slice(index, tagEnd + 1);
+        if (source[index + 1] !== '!' && source[index + 1] !== '/') {
+          expressions.push(...extractExpressionsFromTag(tag));
+        }
+        index = tagEnd + 1;
+        textStart = index;
+      } else {
+        index++;
+      }
     }
   }
 
   expressions.push(...extractExpressionsFromText(source.slice(textStart)));
-  return expressions;
+  return expressions.map(expression => decodeHtmlEntities(expression.replace(/\r\n?/g, '\n')));
 }
 
 function parseFile(fileName, translateServiceName = 'translateService') {
@@ -603,13 +850,12 @@ function parseFile(fileName, translateServiceName = 'translateService') {
     : inlineTemplateExpressions;
 
   // Tokenize Angular expressions so pipe examples inside strings are ignored.
-  const keyPattern = /^[\w-]+(?:\.[\w-]+)*$/;
   angularExpressionSources.forEach(expression => {
-    const tokens = tokenizeCode(expression);
+    const tokens = tokenizeCode(expression, 'angular');
     for (let index = 0; index < tokens.length - 2; index++) {
       if (
         tokens[index].type === 'string' &&
-        keyPattern.test(tokens[index].value) &&
+        tokens[index].value.length > 0 &&
         tokens[index + 1].value === '|' &&
         tokens[index + 2].type === 'identifier' &&
         tokens[index + 2].value === 'translate'
@@ -620,8 +866,16 @@ function parseFile(fileName, translateServiceName = 'translateService') {
   });
 
   if (translateServiceName) {
-    const serviceCallSource = isHtmlFile ? angularExpressionSources.join('\n') : [file, ...angularExpressionSources].join('\n');
-    foundStrings.push(...extractServiceStrings(serviceCallSource, translateServiceName));
+    if (!isHtmlFile) {
+      foundStrings.push(...extractServiceStrings(file, translateServiceName));
+    }
+    if (isHtmlFile || angularExpressionSources.length > 0) {
+      foundStrings.push(...extractServiceStrings(
+        angularExpressionSources.join('\n'),
+        translateServiceName,
+        'angular'
+      ));
+    }
   }
 
   return foundStrings;
@@ -662,3 +916,4 @@ function writeJsonOrStdout(jsonpath, data) {
 }
 
 export { getTranslationFiles, getProjectFiles, parseFile, parseTranslation, writeJsonOrStdout };
+
