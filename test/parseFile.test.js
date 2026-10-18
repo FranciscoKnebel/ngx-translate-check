@@ -44,6 +44,8 @@ const fixture = [
   "this.i18n.get(`STATIC.TEMPLATE`);",
   "this.i18n.get(['ARRAY.ONE', `ARRAY.TWO`]);",
   "this.i18n.get<string>('GENERIC.KEY');",
+  "this.translateService.get<'\\x3e'>('GENERIC.ESCAPED_CLOSING');",
+  "this.translateService.get<'\\x3c'>('GENERIC.ESCAPED_OPENING');",
   "this.i18n?.instant('OPTIONAL.KEY');",
   "this.i18n!.get('ASSERTED.KEY');",
   "if (condition) /i18n.get('REGEX.CONTENT')/.test(source);",
@@ -69,7 +71,7 @@ try {
   fs.writeFileSync(testFile, fixture);
   assert.deepStrictEqual(
     parseFile(testFile, 'i18n').sort(),
-    ['PROFILE.TITLE', 'STATUS.ACTIVE', 'WELCOME', 'STATIC.TEMPLATE', 'ARRAY.ONE', 'ARRAY.TWO', 'GENERIC.KEY', 'OPTIONAL.KEY', 'ASSERTED.KEY', 'INLINE.KEY'].sort()
+    ['PROFILE.TITLE', 'STATUS.ACTIVE', 'WELCOME', 'STATIC.TEMPLATE', 'ARRAY.ONE', 'ARRAY.TWO', 'GENERIC.KEY', 'GENERIC.ESCAPED_CLOSING', 'GENERIC.ESCAPED_OPENING', 'OPTIONAL.KEY', 'ASSERTED.KEY', 'INLINE.KEY'].sort()
   );
   assert.deepStrictEqual(
     parseFile(testFile).sort(),
@@ -115,6 +117,9 @@ try {
 
   fs.writeFileSync(htmlFile, "<div>{{ 'A\r\nB' | translate }}</div>");
   assert.deepStrictEqual(parseFile(htmlFile), ['A\nB']);
+
+  fs.writeFileSync(htmlFile, "<div>{{ 'A&#13;B' | translate }}</div>");
+  assert.deepStrictEqual(parseFile(htmlFile), ['A\rB']);
 
   fs.writeFileSync(htmlFile, "<div>{{ 'ANGULAR\\x2fPIPE' | translate }}</div>");
   assert.deepStrictEqual(parseFile(htmlFile), ['ANGULARx2fPIPE']);
