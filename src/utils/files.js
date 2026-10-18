@@ -690,6 +690,88 @@ function extractAngularExpressionSources(source) {
   let index = 0;
   let textStart = 0;
 
+  function findControlFlowExpressionEnd(expressionStart) {
+    let expressionEnd = expressionStart;
+    let parenthesisDepth = 1;
+
+    while (expressionEnd < source.length && parenthesisDepth > 0) {
+      const character = source[expressionEnd];
+      const nextCharacter = source[expressionEnd + 1];
+
+      if (character === "'" || character === '"' || character === String.fromCharCode(96)) {
+        const quote = character;
+        expressionEnd++;
+        while (expressionEnd < source.length) {
+          if (source[expressionEnd] === '\\') {
+            expressionEnd += 2;
+          } else if (source[expressionEnd] === quote) {
+            expressionEnd++;
+            break;
+          } else {
+            expressionEnd++;
+          }
+        }
+      } else if (character === '/' && nextCharacter === '/') {
+        expressionEnd += 2;
+        while (expressionEnd < source.length && source[expressionEnd] !== '\n' && source[expressionEnd] !== '\r') expressionEnd++;
+      } else if (character === '/' && nextCharacter === '*') {
+        expressionEnd += 2;
+        while (expressionEnd < source.length && !(source[expressionEnd] === '*' && source[expressionEnd + 1] === '/')) expressionEnd++;
+        expressionEnd = Math.min(expressionEnd + 2, source.length);
+      } else {
+        if (character === '(') parenthesisDepth++;
+        if (character === ')') parenthesisDepth--;
+        expressionEnd++;
+      }
+    }
+
+    return parenthesisDepth === 0 ? expressionEnd - 1 : -1;
+  }
+
+  function findLetExpressionEnd(expressionStart) {
+    let expressionEnd = expressionStart;
+    let nestingDepth = 0;
+
+    while (expressionEnd < source.length) {
+      const character = source[expressionEnd];
+      const nextCharacter = source[expressionEnd + 1];
+
+      if (character === "'" || character === '"' || character === String.fromCharCode(96)) {
+        const quote = character;
+        expressionEnd++;
+        while (expressionEnd < source.length) {
+          if (source[expressionEnd] === '\\') {
+            expressionEnd += 2;
+          } else if (source[expressionEnd] === quote) {
+            expressionEnd++;
+            break;
+          } else {
+            expressionEnd++;
+          }
+        }
+      } else if (character === '/' && nextCharacter === '/') {
+        expressionEnd += 2;
+        while (expressionEnd < source.length && source[expressionEnd] !== '\n' && source[expressionEnd] !== '\r') expressionEnd++;
+      } else if (character === '/' && nextCharacter === '*') {
+        expressionEnd += 2;
+        while (expressionEnd < source.length && !(source[expressionEnd] === '*' && source[expressionEnd + 1] === '/')) expressionEnd++;
+        expressionEnd = Math.min(expressionEnd + 2, source.length);
+      } else if (character === '(' || character === '[' || character === '{') {
+        nestingDepth++;
+        expressionEnd++;
+      } else if (character === ')' || character === ']' || character === '}') {
+        nestingDepth = Math.max(0, nestingDepth - 1);
+        expressionEnd++;
+      } else if (character === ';' && nestingDepth === 0) {
+        break;
+      } else {
+        expressionEnd++;
+      }
+    }
+
+    return expressionEnd;
+  }
+
   while (index < source.length) {
     if (source.slice(index, index + 2) === '{{') {
       expressions.push(...extractExpressionsFromText(source.slice(textStart, index)));
@@ -707,21 +789,47 @@ function extractAngularExpressionSources(source) {
       const commentEnd = source.indexOf('-->', index + 4);
       index = commentEnd === -1 ? source.length : commentEnd + 3;
       textStart = index;
-    } else if (
-      source[index] === '<' &&
-      index + 1 < source.length &&
-      (/[A-Za-z/!]/.test(source[index + 1]))
-    ) {
-      expressions.push(...extractExpressionsFromText(source.slice(textStart, index)));
-      const tagEnd = findHtmlTagEnd(source, index);
-      const tag = source.slice(index, tagEnd + 1);
-      if (source[index + 1] !== '!' && source[index + 1] !== '/') {
-        expressions.push(...extractExpressionsFromTag(tag));
-      }
-      index = tagEnd + 1;
-      textStart = index;
     } else {
-      index++;
+      const remaining = source.slice(index);
+      const controlFlowMatch = /^@(?:(?:if|for|switch|case)|else\s+if)\s*\(/.exec(remaining);
+      const letMatch = /^@let\s+[\w$]+\s*=\s*/.exec(remaining);
+
+      if (controlFlowMatch) {
+        expressions.push(...extractExpressionsFromText(source.slice(textStart, index)));
+        const expressionStart = index + controlFlowMatch[0].length;
+        const expressionEnd = findControlFlowExpressionEnd(expressionStart);
+        if (expressionEnd === -1) {
+          index++;
+        } else {
+          expressions.push(source.slice(expressionStart, expressionEnd));
+          index = expressionEnd + 1;
+          textStart = index;
+        }
+      } else if (letMatch) {
+        expressions.push(...extractExpressionsFromText(source.slice(textStart, index)));
+        const expressionStart = index + letMatch[0].length;
+        const expressionEnd = findLetExpressionEnd(expressionStart);
+        if (expressionEnd > expressionStart) {
+          expressions.push(source.slice(expressionStart, expressionEnd));
+        }
+        index = expressionEnd + (source[expressionEnd] === ';' ? 1 : 0);
+        textStart = index;
+      } else if (
+        source[index] === '<' &&
+        index + 1 < source.length &&
+        (/[A-Za-z/!]/.test(source[index + 1]))
+      ) {
+        expressions.push(...extractExpressionsFromText(source.slice(textStart, index)));
+        const tagEnd = findHtmlTagEnd(source, index);
+        const tag = source.slice(index, tagEnd + 1);
+        if (source[index + 1] !== '!' && source[index + 1] !== '/') {
+          expressions.push(...extractExpressionsFromTag(tag));
+        }
+        index = tagEnd + 1;
+        textStart = index;
+      } else {
+        index++;
+      }
     }
   }
 
