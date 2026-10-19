@@ -101,7 +101,7 @@ To publish a new version:
 2. Create a matching version tag **on the merged commit** (for example, `git tag v2.0.0 && git push origin v2.0.0`).
 3. The `Release` workflow verifies that the tag matches the package version and that the commit is on `master`, runs lint, typecheck, tests, and packaging checks, then publishes to npm and creates GitHub release notes.
 
-To retry a failed release, run the `Release` workflow manually from GitHub Actions and supply the existing tag. Publishing an already published npm version will fail, so do not rerun a successful publication.
+To retry a failed or partially completed release, run the `Release` workflow manually from GitHub Actions and supply the existing tag. The workflow skips npm publication if that version is already on the registry and creates the GitHub release if it is missing.
 
 To point `latest`, `next`, or `beta` at an already published version without republishing it, manually run **Promote npm version** from GitHub Actions with a version and destination dist-tag.
 

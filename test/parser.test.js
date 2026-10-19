@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { getProjectFiles, parseFile, parseTranslation } from "../dist/utils/files.js";
+import { getProjectFiles, getTranslationFiles, parseFile, parseTranslation } from "../dist/utils/files.js";
 
 test("finds ngx-translate pipe keys across line breaks", async (context) => {
   const directory = await mkdtemp(join(tmpdir(), "ngx-translate-check-parser-"));
@@ -44,7 +44,7 @@ test("finds TranslateService calls using the default and custom variable names",
   assert.deepEqual(parseFile(typescriptFile).sort(), ["ERROR_UNKNOWN"].sort());
 });
 
-test("lists supported project files but skips node_modules", async (context) => {
+test("lists supported project files but skips dependencies and hidden caches", async (context) => {
   const directory = await mkdtemp(join(tmpdir(), "ngx-translate-check-files-"));
   context.after(() => rm(directory, { recursive: true, force: true }));
 
@@ -53,11 +53,43 @@ test("lists supported project files but skips node_modules", async (context) => 
   await writeFile(join(directory, "ignored.js"), "", "utf8");
   await mkdir(join(directory, "node_modules"));
   await writeFile(join(directory, "node_modules", "ignored.ts"), "", "utf8");
+  await mkdir(join(directory, ".angular"));
+  await writeFile(join(directory, ".angular", "cached.ts"), "", "utf8");
+  await mkdir(join(directory, ".cache"));
+  await writeFile(join(directory, ".cache", "cached.html"), "", "utf8");
+  await writeFile(join(directory, ".hidden.ts"), "", "utf8");
 
   assert.deepEqual(
     await getProjectFiles(directory, ["ts", "html"]),
     [join(directory, "component.ts"), join(directory, "template.html")],
   );
+});
+
+test("follows symlinked files and directories without looping", async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), "ngx-translate-check-links-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+
+  const project = join(directory, "project");
+  const externalSource = join(directory, "external-source");
+  await mkdir(project);
+  await mkdir(externalSource);
+  await writeFile(join(externalSource, "feature.ts"), "", "utf8");
+  await writeFile(join(directory, "standalone.html"), "", "utf8");
+  await symlink(externalSource, join(project, "linked-source"), "dir");
+  await symlink(join(directory, "standalone.html"), join(project, "linked.html"), "file");
+  await symlink(project, join(externalSource, "cycle"), "dir");
+  await symlink(join(project, "missing.ts"), join(project, "broken.ts"), "file");
+
+  assert.deepEqual(await getProjectFiles(project), [
+    join(project, "linked-source", "feature.ts"),
+    join(project, "linked.html"),
+  ].sort());
+
+  const translations = join(directory, "translations");
+  await mkdir(translations);
+  await writeFile(join(directory, "en.json"), "{}", "utf8");
+  await symlink(join(directory, "en.json"), join(translations, "en.json"), "file");
+  assert.deepEqual(await getTranslationFiles(translations), [join(translations, "en.json")]);
 });
 
 test("flattens nested translation keys", async (context) => {

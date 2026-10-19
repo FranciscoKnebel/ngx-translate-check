@@ -1,4 +1,4 @@
-import { readdir, readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 
 import type { InputUsage } from "./dictionary.js";
@@ -30,6 +30,7 @@ async function readMatchingFiles(inputPath: string, fileTypes: string[]): Promis
       .filter(Boolean),
   );
   const pendingDirectories = [inputPath];
+  const visitedDirectories = new Set<string>();
   const matchingFiles: string[] = [];
 
   while (pendingDirectories.length > 0) {
@@ -38,18 +39,45 @@ async function readMatchingFiles(inputPath: string, fileTypes: string[]): Promis
       continue;
     }
 
+    // A symlink may point back to an ancestor (or to an already visited directory).
+    const resolvedDirectory = await realpath(currentDirectory);
+    if (visitedDirectories.has(resolvedDirectory)) {
+      continue;
+    }
+    visitedDirectories.add(resolvedDirectory);
+
     const entries = await readdir(currentDirectory, { withFileTypes: true });
     for (const entry of entries) {
-      const entryPath = join(currentDirectory, entry.name);
-
-      if (entry.isDirectory()) {
-        if (entry.name !== "node_modules" && entry.name !== ".git") {
-          pendingDirectories.push(entryPath);
-        }
+      // Match the previous glob behavior: hidden files/build caches are excluded.
+      if (entry.name.startsWith(".") || entry.name === "node_modules") {
         continue;
       }
 
-      if (!entry.isFile()) {
+      const entryPath = join(currentDirectory, entry.name);
+      let isDirectory = entry.isDirectory();
+      let isFile = entry.isFile();
+
+      if (entry.isSymbolicLink()) {
+        try {
+          const target = await stat(entryPath);
+          isDirectory = target.isDirectory();
+          isFile = target.isFile();
+        } catch (error) {
+          // Ignore dangling links and link loops, like a glob traversal does.
+          if (error !== null && typeof error === "object" && "code" in error &&
+              (error.code === "ENOENT" || error.code === "ELOOP")) {
+            continue;
+          }
+          throw error;
+        }
+      }
+
+      if (isDirectory) {
+        pendingDirectories.push(entryPath);
+        continue;
+      }
+
+      if (!isFile) {
         continue;
       }
 
