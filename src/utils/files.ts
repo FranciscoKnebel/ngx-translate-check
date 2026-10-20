@@ -29,8 +29,11 @@ async function readMatchingFiles(inputPath: string, fileTypes: string[]): Promis
       .map((type) => type.trim().replace(/^\./, "").toLowerCase())
       .filter(Boolean),
   );
-  const pendingDirectories = [inputPath];
-  const visitedDirectories = new Set<string>();
+  // Keep realpaths on each traversal path, not globally: distinct symlink aliases
+  // must remain distinct logical file paths while ancestor cycles are skipped.
+  const pendingDirectories: Array<{ path: string; ancestors: ReadonlySet<string> }> = [
+    { path: inputPath, ancestors: new Set<string>() },
+  ];
   const matchingFiles: string[] = [];
 
   while (pendingDirectories.length > 0) {
@@ -39,21 +42,21 @@ async function readMatchingFiles(inputPath: string, fileTypes: string[]): Promis
       continue;
     }
 
-    // A symlink may point back to an ancestor (or to an already visited directory).
-    const resolvedDirectory = await realpath(currentDirectory);
-    if (visitedDirectories.has(resolvedDirectory)) {
+    const resolvedDirectory = await realpath(currentDirectory.path);
+    if (currentDirectory.ancestors.has(resolvedDirectory)) {
       continue;
     }
-    visitedDirectories.add(resolvedDirectory);
+    const ancestors = new Set(currentDirectory.ancestors);
+    ancestors.add(resolvedDirectory);
 
-    const entries = await readdir(currentDirectory, { withFileTypes: true });
+    const entries = await readdir(currentDirectory.path, { withFileTypes: true });
     for (const entry of entries) {
       // Match the previous glob behavior: hidden files/build caches are excluded.
       if (entry.name.startsWith(".") || entry.name === "node_modules") {
         continue;
       }
 
-      const entryPath = join(currentDirectory, entry.name);
+      const entryPath = join(currentDirectory.path, entry.name);
       let isDirectory = entry.isDirectory();
       let isFile = entry.isFile();
 
@@ -73,7 +76,7 @@ async function readMatchingFiles(inputPath: string, fileTypes: string[]): Promis
       }
 
       if (isDirectory) {
-        pendingDirectories.push(entryPath);
+        pendingDirectories.push({ path: entryPath, ancestors });
         continue;
       }
 
