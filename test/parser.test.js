@@ -76,12 +76,14 @@ test("follows symlinked files and directories without looping", async (context) 
   await writeFile(join(externalSource, "feature.ts"), "", "utf8");
   await writeFile(join(directory, "standalone.html"), "", "utf8");
   await symlink(externalSource, join(project, "linked-source"), "dir");
+  await symlink(externalSource, join(project, "another-linked-source"), "dir");
   await symlink(join(directory, "standalone.html"), join(project, "linked.html"), "file");
   await symlink(project, join(externalSource, "cycle"), "dir");
   await symlink(join(project, "missing.ts"), join(project, "broken.ts"), "file");
 
   assert.deepEqual(await getProjectFiles(project), [
     join(project, "linked-source", "feature.ts"),
+    join(project, "another-linked-source", "feature.ts"),
     join(project, "linked.html"),
   ].sort());
 
