@@ -38,15 +38,16 @@ jobs:
       - name: Verify version and released commit
         env:
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
           if [[ ! "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
             echo "::error::Release tags must use vMAJOR.MINOR.PATCH"
             exit 1
           fi
-          git fetch origin master --quiet
-          git merge-base --is-ancestor HEAD origin/master || {
-            echo "::error::The release tag must refer to a commit already on master"
+          git fetch origin "$DEFAULT_BRANCH" --quiet
+          git merge-base --is-ancestor HEAD "refs/remotes/origin/$DEFAULT_BRANCH" || {
+            echo "::error::The release tag must refer to a commit already on $DEFAULT_BRANCH"
             exit 1
           }
           PACKAGE_VERSION="$(node -p 'require("./package.json").version')"

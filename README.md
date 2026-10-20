@@ -97,9 +97,9 @@ One-time setup for the package maintainer:
 
 To publish a new version:
 
-1. Change the version in `package.json` and `package-lock.json` in a PR, and merge it into `master`.
+1. Change the version in `package.json` and `package-lock.json` in a PR, and merge it into the repository's default branch (currently `master`).
 2. Create a matching version tag **on the merged commit** (for example, `git tag v2.0.0 && git push origin v2.0.0`).
-3. The `Release` workflow verifies that the tag matches the package version and that the commit is on `master`, runs lint, typecheck, tests, and packaging checks, then publishes to npm and creates GitHub release notes.
+3. The `Release` workflow verifies that the tag matches the package version and that the commit is on the repository's default branch, runs lint, typecheck, tests, and packaging checks, then publishes to npm and creates GitHub release notes.
 
 To retry a failed or partially completed release, run the `Release` workflow manually from GitHub Actions and supply the existing tag. The workflow skips npm publication if that version is already on the registry and creates the GitHub release if it is missing.
 
