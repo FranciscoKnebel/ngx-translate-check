@@ -26,11 +26,10 @@ export function registerDiffCommand(program: Command): void {
       const report = await readFilesOutput(fileName);
       const translations = report.translations;
       const languages = Object.keys(translations);
-      const baseIndex = Number.parseInt(options.base, 10);
-
-      if (!Number.isInteger(baseIndex)) {
+      if (!/^[+-]?\d+$/.test(options.base) || !Number.isSafeInteger(Number(options.base))) {
         throw new Error("Base language index must be an integer.");
       }
+      const baseIndex = Number(options.base);
 
       const response =
         baseIndex < 0

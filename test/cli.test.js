@@ -77,6 +77,17 @@ test("files, diff, and diff-input commands produce the expected report", async (
     "--json",
     diffPath,
   ]);
+  for (const invalidBase of ["1.5", "1junk", "1e2", "0x10", " 1", "1 ", "", "9007199254740993"]) {
+    await assert.rejects(
+      execFileAsync(process.execPath, [cliPath, "diff", reportPath, "--base", invalidBase]),
+      (error) => {
+        assert.match(error.stderr, /Base language index must be an integer/);
+        return true;
+      },
+      `--base ${JSON.stringify(invalidBase)} should be rejected`,
+    );
+  }
+
   const languageDiff = JSON.parse(await readFile(diffPath, "utf8"));
   assert.deepEqual(languageDiff["base " + join(i18nPath, "en.json")], { "PAGE.ONLY_EN": 1 });
   assert.deepEqual(languageDiff["compare with " + join(i18nPath, "pt-BR.json")], {
