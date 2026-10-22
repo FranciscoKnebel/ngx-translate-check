@@ -81,8 +81,8 @@ function baseLanguageDiff(
   languages: string[],
   translations: Record<string, Record<string, number>>,
   baseIndex: number,
-): LanguageDiff {
-  return diffForBase(languages, translations, baseIndex)[0] ?? {};
+): LanguageDiff[] {
+  return diffForBase(languages, translations, baseIndex);
 }
 
 function allLanguagesDiff(

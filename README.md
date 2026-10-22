@@ -60,11 +60,15 @@ Compare the first translation file with the others:
 ngx-translate-check diff translations-report.json --base 0 --json translation-diff.json
 ~~~
 
+In v2, a non-negative `--base` returns an array with one comparison for each other translation file. Each comparison contains `base <file>` and `compare with <file>` objects holding the keys exclusive to that file. A report with only one language returns an empty array. This replaces the v1 object, which only included the first comparison and omitted additional languages.
+
 Use a negative base index to compare every language with every other language:
 
 ~~~sh
 ngx-translate-check diff translations-report.json --base -1 --json all-language-diffs.json
 ~~~
+
+A negative `--base` returns an array of comparison arrays, one for each base language.
 
 ### Compare project usage with translations
 

@@ -77,7 +77,9 @@ test("files, diff, and diff-input commands produce the expected report", async (
     "--json",
     diffPath,
   ]);
-  const languageDiff = JSON.parse(await readFile(diffPath, "utf8"));
+  const languageDiffs = JSON.parse(await readFile(diffPath, "utf8"));
+  assert.equal(languageDiffs.length, 1);
+  const [languageDiff] = languageDiffs;
   assert.deepEqual(languageDiff["base " + join(i18nPath, "en.json")], { "PAGE.ONLY_EN": 1 });
   assert.deepEqual(languageDiff["compare with " + join(i18nPath, "pt-BR.json")], {
     "PAGE.ONLY_PT": 1,
@@ -110,4 +112,47 @@ test("files, diff, and diff-input commands produce the expected report", async (
     inputDiff[join(i18nPath, "en.json")]["in " + join(i18nPath, "en.json") + ", not in input files"],
     { "PAGE.ONLY_EN": 1 },
   );
+});
+
+test("diff includes every comparison for the selected base language", async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), "ngx-translate-check-diff-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const reportPath = join(directory, "report.json");
+  const diffPath = join(directory, "diff.json");
+  const translations = {
+    "en.json": { COMMON: 1, EN_ONLY: 1 },
+    "pt.json": { COMMON: 1, PT_ONLY: 1 },
+    "es.json": { COMMON: 1, ES_ONLY: 1 },
+  };
+  await writeFile(reportPath, JSON.stringify({ input: {}, translations }), "utf8");
+
+  const expected = [
+    [
+      { "base en.json": { EN_ONLY: 1 }, "compare with pt.json": { PT_ONLY: 1 } },
+      { "base en.json": { EN_ONLY: 1 }, "compare with es.json": { ES_ONLY: 1 } },
+    ],
+    [
+      { "base pt.json": { PT_ONLY: 1 }, "compare with en.json": { EN_ONLY: 1 } },
+      { "base pt.json": { PT_ONLY: 1 }, "compare with es.json": { ES_ONLY: 1 } },
+    ],
+    [
+      { "base es.json": { ES_ONLY: 1 }, "compare with en.json": { EN_ONLY: 1 } },
+      { "base es.json": { ES_ONLY: 1 }, "compare with pt.json": { PT_ONLY: 1 } },
+    ],
+  ];
+  for (const base of [0, 1, 2]) {
+    await execFileAsync(process.execPath, [
+      cliPath, "diff", reportPath, "--base", String(base), "--json", diffPath,
+    ]);
+    const comparisons = JSON.parse(await readFile(diffPath, "utf8"));
+    assert.deepEqual(comparisons, expected[base]);
+  }
+
+  await writeFile(reportPath, JSON.stringify({
+    input: {}, translations: { "en.json": translations["en.json"] },
+  }), "utf8");
+  await execFileAsync(process.execPath, [
+    cliPath, "diff", reportPath, "--base", "0", "--json", diffPath,
+  ]);
+  assert.deepEqual(JSON.parse(await readFile(diffPath, "utf8"))), []);
 });
