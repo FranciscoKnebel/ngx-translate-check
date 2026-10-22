@@ -154,5 +154,5 @@ test("diff includes every comparison for the selected base language", async (con
   await execFileAsync(process.execPath, [
     cliPath, "diff", reportPath, "--base", "0", "--json", diffPath,
   ]);
-  assert.deepEqual(JSON.parse(await readFile(diffPath, "utf8"))), []);
+  assert.deepEqual(JSON.parse(await readFile(diffPath, "utf8")), []);
 });
